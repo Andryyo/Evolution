@@ -12,7 +12,7 @@ type Game struct {
 	Deck          []*Card
 	Filters       []Filter
 	CurrentPhase  Phase
-	CurrentPlayer *ring.Ring
+	CurrentPlayer *Player
 }
 
 type Source interface{}
@@ -54,10 +54,22 @@ type Card struct {
 	Owner          *Player
 }
 
+func (c *Card) GoString() string {
+	propertiesCount := len(c.Properties)
+	if propertiesCount == 0 {
+		return ""
+	}
+	result := c.Properties[0].Name
+	for i := 1; i < propertiesCount; i++ {
+		result += "/" + c.Properties[i].Name
+	}
+	return result
+}
+
 type Property struct {
 	Name           string
 	Filters        []Filter
-	Actions        []Action
+	Actions        []*Action
 	ContainingCard *Card
 }
 
@@ -66,9 +78,9 @@ func (p *Property) String() string {
 }
 
 type Creature struct {
-	cards      []*Card
-	Properties []*Property
-	Owner      *Player
+	Head  *Card
+	Tail  []*Card
+	Owner *Player
 }
 
 type Player struct {
@@ -87,24 +99,28 @@ func NewDevelopmentPhase(game *Game) *DevelopmentPhase {
 	return &DevelopmentPhase{game}
 }
 
-func (p *DevelopmentPhase) ChooseAction(player *Player, action Action) {
+func (p *DevelopmentPhase) ChooseAction(player *Player, action *Action) {
 
 }
 
-func (g *Game) GetInstantiationVariants(player *Player, arguments *map[ArgumentName]Source, argumentsNames *[]ArgumentName, argumentNumber int) []map[ArgumentName]Source {
-	argumentsLen := len(*arguments)
-	argument := (*argumentsNames)[argumentNumber]
-	instantiatedArguments := g.InstantiateArgument(player, (*arguments)[argument])
+func (g *Game) GetInstantiationVariants(arguments map[ArgumentName]Source, argumentsNames []ArgumentName, argumentNumber int) []map[ArgumentName]Source {
+	argumentsLen := len(arguments)
+	if argumentsLen == 0 {
+		return []map[ArgumentName]Source{}
+	}
+	argumentName := argumentsNames[argumentNumber]
+	argument := arguments[argumentName]
+	instantiatedArguments := g.InstantiateArgument(argument)
 	if argumentNumber == argumentsLen-1 {
 		result := make([]map[ArgumentName]Source, 0, argumentsLen)
 		for _, instantiatedArgument := range instantiatedArguments {
 			tmp := make(map[ArgumentName]Source)
-			tmp[argument] = instantiatedArgument
+			tmp[argumentName] = instantiatedArgument
 			result = append(result, tmp)
 		}
 		return result
 	}
-	completedVariants := g.GetInstantiationVariants(player, arguments, argumentsNames, argumentNumber+1)
+	completedVariants := g.GetInstantiationVariants(arguments, argumentsNames, argumentNumber+1)
 	result := make([]map[ArgumentName]Source, 0, len(completedVariants)*len(instantiatedArguments))
 	for _, instantiatedArgument := range instantiatedArguments {
 		for _, completedVariant := range completedVariants {
@@ -112,51 +128,57 @@ func (g *Game) GetInstantiationVariants(player *Player, arguments *map[ArgumentN
 			for key := range completedVariant {
 				tmp[key] = completedVariant[key]
 			}
-			tmp[argument] = instantiatedArgument
+			tmp[argumentName] = instantiatedArgument
+			result = append(result, tmp)
 		}
 	}
 	return result
 
 }
 
-func (g *Game) InstantiateArgument(player *Player, argument Source) []Source {
+func (g *Game) InstantiateArgument(argument Source) []Source {
 	result := make([]Source, 0, 8)
+	if _, ok := argument.(SourcePrototype); !ok {
+		return []Source{argument}
+	}
 	switch argument {
-	case SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY_NOT_SELECTED:
-		for _, card := range player.Cards {
+	case SOURCE_PROTOTYPE_PLAYER:
+		result = append(result, g.CurrentPlayer)
+	case SOURCE_PROTOTYPE_PLAYER_CARD:
+		for _, card := range g.CurrentPlayer.Cards {
+			result = append(result, card)
+		}
+	case SOURCE_PROTOTYPE_PLAYER_CREATURE:
+		for _, creature := range g.CurrentPlayer.Creatures {
+			result = append(result, creature)
+		}
+	case SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY:
+		for _, card := range g.CurrentPlayer.Cards {
 			for _, property := range card.Properties {
-				fmt.Println(card.ActiveProperty, property)
-				if card.ActiveProperty != property {
-					result = append(result, property)
-				}
+				result = append(result, property)
 			}
 		}
 	}
 	return result
 }
 
-func (g *Game) InstantiateActionPrototype(player *Player, prototype Action) []Action {
-	var result []Action
-	var action Action
+func (g *Game) InstantiateActionPrototype(prototype *Action) []*Action {
+	var result []*Action
 	var definedArgumentsNames []ArgumentName
 	var undefinedArgumentsNames []ArgumentName
-	for key, argument := range *prototype.GetArguments() {
-		if _, ok := argument.(*ArgumentName); ok {
+	for key, argument := range prototype.Arguments {
+		if _, ok := argument.(SourcePrototype); ok {
 			undefinedArgumentsNames = append(undefinedArgumentsNames, key)
 		} else {
 			definedArgumentsNames = append(definedArgumentsNames, key)
 		}
 	}
-	var variants []map[ArgumentName]Source = g.GetInstantiationVariants(player, prototype.GetArguments(), &undefinedArgumentsNames, 0)
+	var variants []map[ArgumentName]Source = g.GetInstantiationVariants(prototype.Arguments, undefinedArgumentsNames, 0)
 	for _, variant := range variants {
 		for _, definedArgumentName := range definedArgumentsNames {
-			variant[definedArgumentName] = (*prototype.GetArguments())[definedArgumentName]
+			variant[definedArgumentName] = prototype.Arguments[definedArgumentName]
 		}
-		switch prototype.GetType() {
-		case ACTION_SELECT_ACTIVE_PROPERTY:
-			action = &ActionSelectActiveProperty{BaseAction{variant}}
-		}
-		result = append(result, action)
+		result = append(result, &Action{prototype.Type, variant})
 	}
 	return result
 }
@@ -165,14 +187,9 @@ func NewGame(players ...string) *Game {
 	fmt.Println("Here is library start!")
 	game := new(Game)
 	game.InitializeDeck()
-	game.InitializePlayers()
+	game.InitializePlayers(players...)
 	game.InitializeFilters()
-	game.ExecuteAction(
-		&ActionSequence{BaseAction{map[ArgumentName]Source{PARAMETER_ACTIONS_SEQUENCE: &[]Action{
-			&ActionNewPhase{BaseAction{map[ArgumentName]Source{PARAMETER_PHASE: PHASE_DEVELOPMENT}}},
-			&ActionStartTurn{BaseAction{map[ArgumentName]Source{PARAMETER_PLAYER: game.CurrentPlayer}}},
-		},
-		}}})
+	game.ExecuteAction(NewActionSequence(NewActionNewPhase(PHASE_DEVELOPMENT), NewActionStartTurn(game.CurrentPlayer)))
 	return game
 }
 
@@ -236,17 +253,17 @@ func (g *Game) InitializeDeck() {
 func (g *Game) InitializePlayers(names ...string) {
 	g.Players = ring.New(len(names))
 	for _, name := range names {
-		player := new(Player)
-		player.Name = name
+		player := &Player{Name: name}
 		g.Players.Value = player
-		g.Players = g.Players.Next()
 		g.TakeCards(player, 6)
+		g.Players = g.Players.Next()
 	}
-	g.CurrentPlayer = g.Players
+	g.CurrentPlayer = g.Players.Value.(*Player)
 }
 
 func (g *Game) InitializeFilters() {
-	g.Filters = append(g.Filters, &FilterAllow{&ActionSelectActiveProperty{BaseAction{map[ArgumentName]Source{PARAMETER_CARD: SOURCE_PROTOTYPE_PLAYER_CARD, PARAMETER_PROPERTY: SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY_NOT_SELECTED}}}})
+	g.Filters = append(g.Filters, &FilterAllow{NewActionAddCreature(SOURCE_PROTOTYPE_PLAYER, SOURCE_PROTOTYPE_PLAYER_CARD)})
+	g.Filters = append(g.Filters, &FilterAllow{NewActionAddProperty(SOURCE_PROTOTYPE_PLAYER_CREATURE, SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY)})
 }
 
 func (g *Game) AddCard(count int, properties ...*Property) {
@@ -277,7 +294,7 @@ func (g *Game) ShuffleDeck() {
 	}
 }
 
-func (g *Game) ActionDenied(action Action) bool {
+func (g *Game) ActionDenied(action *Action) bool {
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_DENY && (filter.CheckCondition(g, action)) {
 			return true
@@ -286,20 +303,20 @@ func (g *Game) ActionDenied(action Action) bool {
 	return false
 }
 
-func (g *Game) GetAlowedActions() []Action {
-	var result []Action
+func (g *Game) GetAlowedActions() []*Action {
+	var result []*Action
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_ALLOW {
 			action := filter.(*FilterAllow).GetAction()
 			if !g.ActionDenied(action) {
-				result = append(result, action)
+				result = append(result, g.InstantiateActionPrototype(action)...)
 			}
 		}
 	}
 	return result
 }
 
-func (g *Game) ExecuteAction(action Action) {
+func (g *Game) ExecuteAction(action *Action) {
 	if g.ActionDenied(action) {
 		return
 	}
@@ -308,6 +325,7 @@ func (g *Game) ExecuteAction(action Action) {
 			filter.(FilterModify).ModifyAction(action)
 		}
 	}
+	fmt.Printf("Executing action: %#v\n", action)
 	action.Execute(g)
 	for _, filter := range g.Filters {
 		if filter.CheckCondition(g, action) && filter.GetType() == FILTER_ACTION {

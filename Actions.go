@@ -2,7 +2,6 @@
 package main
 
 import (
-	"container/ring"
 	"fmt"
 )
 
@@ -12,106 +11,92 @@ const (
 	ACTION_SEQUENCE ActionType = iota
 	ACTION_START_TURN
 	ACTION_NEXT_PLAYER
+	ACTION_ADD_CREATURE
+	ACTION_ADD_PROPERTY
 	ACTION_PASS
 	ACTION_NEW_PHASE
-	ACTION_SELECT_ACTIVE_PROPERTY
-	ACTION_ADD_CARD
 )
 
-type ArgumentName string
+type ArgumentName int
 
 const (
-	PARAMETER_PROPERTY         ArgumentName = "Property"
-	PARAMETER_PHASE                         = "Phase"
-	PARAMETER_PLAYER                        = "Player"
-	PARAMETER_CARD                          = "Card"
-	PARAMETER_ACTIONS_SEQUENCE              = "Actions sequence"
+	PARAMETER_PROPERTY ArgumentName = iota
+	PARAMETER_PHASE
+	PARAMETER_PLAYER
+	PARAMETER_CARD
+	PARAMETER_ACTIONS_SEQUENCE
+	PARAMETER_CREATURE
 )
 
-type Action interface {
-	GetType() ActionType
-	GetArguments() *map[ArgumentName]Source
-	Execute(game *Game)
+type Action struct {
+	Type      ActionType
+	Arguments map[ArgumentName]Source
 }
 
-type BaseAction struct {
-	arguments map[ArgumentName]Source
+func (a *Action) GoString() string {
+	result := ""
+	switch a.Type {
+	case ACTION_ADD_CREATURE:
+		card := a.Arguments[PARAMETER_CARD].(*Card)
+		result += fmt.Sprintf("Create creature using (%#v) card", card)
+	case ACTION_START_TURN:
+		result += fmt.Sprintf("Player %s starts turn", a.Arguments[PARAMETER_PLAYER].(*Player).Name)
+	default:
+		result += fmt.Sprintf("%+v", a)
+	}
+	return result
 }
 
-func (b *BaseAction) GetArguments() *map[ArgumentName]Source {
-	return &b.arguments
-}
-
-type ActionSelectActiveProperty struct {
-	BaseAction
-}
-
-func (a *ActionSelectActiveProperty) GetType() ActionType {
-	return ACTION_SELECT_ACTIVE_PROPERTY
-}
-
-func (a *ActionSelectActiveProperty) Execute(game *Game) {
-	a.arguments[PARAMETER_CARD].(*Card).ActiveProperty = a.arguments[PARAMETER_PROPERTY].(*Property)
-}
-
-type ActionNewPhase struct {
-	BaseAction
-}
-
-func (a *ActionNewPhase) GetType() ActionType {
-	return ACTION_NEW_PHASE
-}
-
-func (a *ActionNewPhase) Execute(game *Game) {
-}
-
-type ActionSequence struct {
-	BaseAction
-}
-
-func (a *ActionSequence) GetType() ActionType {
-	return ACTION_SEQUENCE
-}
-
-func (a *ActionSequence) Execute(game *Game) {
-	for _, action := range *a.arguments[PARAMETER_ACTIONS_SEQUENCE].(*[]Action) {
-		game.ExecuteAction(action)
+func (a *Action) Execute(game *Game) {
+	switch a.Type {
+	case ACTION_SEQUENCE:
+		for _, action := range a.Arguments[PARAMETER_ACTIONS_SEQUENCE].([]*Action) {
+			game.ExecuteAction(action)
+		}
+	case ACTION_START_TURN:
+		player := a.Arguments[PARAMETER_PLAYER].(*Player)
+		game.CurrentPlayer = player
+		actions := game.GetAlowedActions()
+		fmt.Println("Choose one action:")
+		for i, action := range actions {
+			fmt.Printf("%v) %#v\n", i, action)
+		}
+	case ACTION_NEXT_PLAYER:
+		game.ExecuteAction(NewActionStartTurn(game.Players.Next().Value.(*Player)))
+	case ACTION_ADD_CREATURE:
+		card := a.Arguments[PARAMETER_CARD].(*Card)
+		player := a.Arguments[PARAMETER_PLAYER].(*Player)
+		creature := &Creature{card, []*Card{}, player}
+		player.Creatures = append(player.Creatures, creature)
+	case ACTION_ADD_PROPERTY:
+		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
+		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
+		card := property.ContainingCard
+		card.ActiveProperty = property
+		creature.Tail = append(creature.Tail, card)
 	}
 }
 
-type ActionStartTurn struct {
-	BaseAction
+func NewActionStartTurn(player Source) *Action {
+	return &Action{ACTION_START_TURN, map[ArgumentName]Source{PARAMETER_PLAYER: player}}
 }
 
-func NewActionStartTurn(game *Game, player *ring.Ring) *ActionStartTurn {
-	return &ActionStartTurn{BaseAction{map[ArgumentName]Source{PARAMETER_PLAYER: player}}}
+func NewActionNextPlayer(game *Game) *Action {
+	return &Action{ACTION_NEXT_PLAYER, map[ArgumentName]Source{}}
 }
 
-func (a *ActionStartTurn) GetType() ActionType {
-	return ACTION_SEQUENCE
+func NewActionSequence(actions ...*Action) *Action {
+	return &Action{ACTION_SEQUENCE, map[ArgumentName]Source{PARAMETER_ACTIONS_SEQUENCE: actions}}
 }
 
-func (a *ActionStartTurn) Execute(game *Game) {
-	game.CurrentPlayer = a.arguments[PARAMETER_PLAYER].(*ring.Ring)
-	actions := game.GetAlowedActions()
-	fmt.Println("Choose one action:")
-	for i, action := range actions {
-		fmt.Println(i, ") ", action)
-	}
+func NewActionNewPhase(phaseType PhaseType) *Action {
+	return &Action{ACTION_NEW_PHASE, map[ArgumentName]Source{PARAMETER_PHASE: phaseType}}
 }
 
-type ActionNextPlayer struct {
-	BaseAction
+func NewActionAddCreature(player Source, card Source) *Action {
+	return &Action{ACTION_ADD_CREATURE, map[ArgumentName]Source{PARAMETER_PLAYER: player, PARAMETER_CARD: card}}
 }
 
-func NewActionNextPlayer(game *Game) *ActionNextPlayer {
-	return &ActionNextPlayer{BaseAction{map[ArgumentName]Source{PARAMETER_PLAYER: game.CurrentPlayer.Next()}}}
-}
-
-func (a *ActionNextPlayer) GetType() ActionType {
-	return ACTION_NEXT_PLAYER
-}
-
-func (a *ActionNextPlayer) Execute(game *Game) {
-	game.ExecuteAction(NewActionStartTurn(game, (*a.GetArguments())[PARAMETER_PLAYER].(*ring.Ring)))
+func NewActionAddProperty(creature Source, property Source) *Action {
+	return &Action{ACTION_ADD_PROPERTY, map[ArgumentName]Source{PARAMETER_CREATURE: creature, PARAMETER_PROPERTY: property}}
 }

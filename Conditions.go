@@ -2,14 +2,14 @@
 package main
 
 type Condition interface {
-	CheckCondition(game *Game, action Action) bool
+	CheckCondition(game *Game, action *Action) bool
 }
 
 type ANDCondition struct {
 	conditions []Condition
 }
 
-func (c *ANDCondition) CheckCondition(game *Game, action Action) bool {
+func (c *ANDCondition) CheckCondition(game *Game, action *Action) bool {
 	for _, condition := range c.conditions {
 		if !condition.CheckCondition(game, action) {
 			return false
@@ -22,7 +22,7 @@ type ORCondition struct {
 	conditions []Condition
 }
 
-func (c *ORCondition) CheckCondition(game *Game, action Action) bool {
+func (c *ORCondition) CheckCondition(game *Game, action *Action) bool {
 	for _, condition := range c.conditions {
 		if condition.CheckCondition(game, action) {
 			return true
@@ -35,7 +35,7 @@ type ConditionActionArguments struct {
 	arguments map[ArgumentName]Source
 }
 
-func (c *ConditionActionArguments) CheckCondition(game *Game, action Action) bool {
+func (c *ConditionActionArguments) CheckCondition(game *Game, action *Action) bool {
 	for key, argument := range c.arguments {
 		if prototype, ok := argument.(SourcePrototype); ok {
 			switch prototype {
@@ -52,6 +52,6 @@ type ConditionActionType struct {
 	actionType ActionType
 }
 
-func (c *ConditionActionType) CheckCondition(game *Game, action Action) bool {
-	return c.actionType == action.GetType()
+func (c *ConditionActionType) CheckCondition(game *Game, action *Action) bool {
+	return c.actionType == action.Type
 }

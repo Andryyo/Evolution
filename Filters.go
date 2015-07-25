@@ -13,7 +13,7 @@ const (
 type Filter interface {
 	GetType() FilterType
 	GetCondition() Condition
-	CheckCondition(game *Game, action Action) bool
+	CheckCondition(game *Game, action *Action) bool
 }
 
 type FilterDeny struct {
@@ -28,12 +28,12 @@ func (f *FilterDeny) GetCondition() Condition {
 	return f.condition
 }
 
-func (f *FilterDeny) CheckCondition(game *Game, action Action) bool {
+func (f *FilterDeny) CheckCondition(game *Game, action *Action) bool {
 	return f.condition == nil || f.condition.CheckCondition(game, action)
 }
 
 type FilterAllow struct {
-	action Action
+	action *Action
 }
 
 func (f *FilterAllow) GetType() FilterType {
@@ -44,17 +44,17 @@ func (f *FilterAllow) GetCondition() Condition {
 	return nil
 }
 
-func (f *FilterAllow) GetAction() Action {
+func (f *FilterAllow) GetAction() *Action {
 	return f.action
 }
 
-func (f *FilterAllow) CheckCondition(game *Game, action Action) bool {
+func (f *FilterAllow) CheckCondition(game *Game, action *Action) bool {
 	return true
 }
 
 type FilterAction struct {
 	condition Condition
-	action    Action
+	action    *Action
 }
 
 func (f *FilterAction) GetType() FilterType {
@@ -65,17 +65,17 @@ func (f *FilterAction) GetCondition() Condition {
 	return f.condition
 }
 
-func (f *FilterAction) CheckCondition(game *Game, action Action) bool {
+func (f *FilterAction) CheckCondition(game *Game, action *Action) bool {
 	return f.condition == nil || f.condition.CheckCondition(game, action)
 }
 
-func (f *FilterAction) GetAction() Action {
+func (f *FilterAction) GetAction() *Action {
 	return f.action
 }
 
 type FilterModify interface {
 	GetType() FilterType
 	GetCondition() Condition
-	CheckCondition(game *Game, action Action) bool
-	ModifyAction(action Action) Action
+	CheckCondition(game *Game, action *Action) bool
+	ModifyAction(action *Action) Action
 }
