@@ -10,20 +10,14 @@ import (
 
 type Game struct {
 	Players       *ring.Ring
+	PlayersCount	int
 	Deck          []*Card
 	Filters       []Filter
 	Actions       list.List
 	CurrentPhase  PhaseType
 	CurrentPlayer *Player
+	FoodBank	  FoodBank
 }
-
-type TraitType int
-
-const (
-	TRAIT_PASS TraitType = iota
-	TRAIT_SHART_VISION
-	TRAIT_CAMOUFLAGE
-)
 
 type WithTraits interface {
 	GetTraits() []TraitType
@@ -31,38 +25,11 @@ type WithTraits interface {
 	RemoveTrait(trait TraitType)
 }
 
+type FoodBank struct {
+	Count int
+}
+
 type Source interface{}
-
-type SourcePrototype int
-
-const (
-	SOURCE_PROTOTYPE_NONE SourcePrototype = iota
-	SOURCE_PROTOTYPE_CREATURES_PAIR
-	SOURCE_PROTOTYPE_PROPERTY
-	SOURCE_PROTOTYPE_PLAYER_CREATURE_PROPERTY
-	SOURCE_PROTOTYPE_PLAYER_CARD
-	SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY_NOT_SELECTED
-	SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY
-	SOURCE_PROTOTYPE_OPPONENT_CARD
-	SOURCE_PROTOTYPE_PLAYER
-	SOURCE_PROTOTYPE_OPPONENT
-	SOURCE_PROTOTYPE_ANY_PLAYER
-	SOURCE_PROTOTYPE_PLAYER_CREATURE
-	SOURCE_PROTOTYPE_PLAYER_CREATURE_NOT_SENDER
-	SOURCE_PROTOTYPE_DECK
-	SOURCE_PROTOTYPE_OWN_CREATURE
-	SOURCE_PROTOTYPE_OWN_CREATURE_NOT_SENDER
-	SOURCE_PROTOTYPE_DESK
-)
-
-type PhaseType int
-
-const (
-	PHASE_DEVELOPMENT PhaseType = iota
-	PHASE_FOOD_BANK_DETERMINATION
-	PHASE_FEEDING
-	PHASE_EXTINCTION
-)
 
 type Card struct {
 	ActiveProperty *Property
@@ -77,17 +44,17 @@ func (c *Card) GetTraits() []TraitType {
 func (c *Card) GoString() string {
 	propertiesCount := len(c.Properties)
 	if propertiesCount == 0 {
-		return ""
+		return "()"
 	}
-	result := c.Properties[0].Name
+	result := "(" + c.Properties[0].GoString()
 	for i := 1; i < propertiesCount; i++ {
-		result += "/" + c.Properties[i].Name
+		result += "/" + c.Properties[i].GoString()
 	}
+	result += ")"
 	return result
 }
 
 type Property struct {
-	Name           string
 	ContainingCard *Card
 	Traits         []TraitType
 }
@@ -96,8 +63,17 @@ func (c *Property) GetTraits() []TraitType {
 	return c.Traits
 }
 
-func (p *Property) String() string {
-	return p.Name
+func (c *Property) GoString() string {
+	len := len(c.Traits)
+	if len == 0 {
+		return "()"
+	}
+	result := "(" + c.Traits[0].GoString()
+	for i := 1; i<len;i++ {
+		result += "/" + c.Traits[i].GoString()
+	}
+	result += ")"
+	return result
 }
 
 type Creature struct {
@@ -107,8 +83,26 @@ type Creature struct {
 	Traits []TraitType
 }
 
+func (c *Creature) GoString() string {
+	traits := c.GetTraits()
+	len := len(traits)
+	if len == 0 {
+		return "(Creature)"
+	}
+	result := "(Creature : " + traits[0].GoString()
+	for i := 1; i<len;i++ {
+		result += "/" + traits[i].GoString()
+	}
+	result += "))"
+	return result
+}
+
 func (c *Creature) GetTraits() []TraitType {
-	return c.Traits
+	result := c.Traits
+	for _,card := range c.Tail {
+		result = append(result, card.GetTraits()...)
+	}
+	return result
 }
 
 func (c *Creature) AddTrait(trait TraitType) {
@@ -281,9 +275,9 @@ func (g *Game) TakeCard(player *Player) {
 }
 
 func (g *Game) InitializeDeck() {
-	camouflage := Property{Name: "camouflage", Traits : []TraitType {TRAIT_CAMOUFLAGE}}
-	//burrowing := &Property{Name: "burrowing"}
-	//sharpVision := &Property{Name: "sharpVision", Traits : []TraitType {TRAIT_SHART_VISION}}
+	camouflage := Property{Traits : []TraitType {TRAIT_CAMOUFLAGE}}
+	burrowing := Property{Traits : []TraitType {TRAIT_BURROWING}}
+	sharpVision := Property{Traits : []TraitType {TRAIT_SHART_VISION}}
 	/*symbiosys := &Property{Name: "symbiosys"}
 	piracy := &Property{Name: "piracy"}
 	grazing := &Property{Name: "grazing"}
@@ -302,8 +296,8 @@ func (g *Game) InitializeDeck() {
 	highBodyWeight := &Property{Name: "highBodyWeight"}*/
 	g.Deck = make([]*Card, 0, 84)
 	g.AddCard(4, camouflage)
-	//g.AddCard(4, burrowing)
-	//g.AddCard(4, sharpVision)
+	g.AddCard(4, burrowing)
+	g.AddCard(4, sharpVision)
 	/*g.AddCard(4, symbiosys)
 	g.AddCard(4, piracy)
 	g.AddCard(4, grazing)
@@ -329,7 +323,7 @@ func (g *Game) InitializePlayers(names ...string) {
 	for _, name := range names {
 		player := &Player{Name: name, ChoiceMaker: ConsoleChoiceMaker{}}
 		g.Players.Value = player
-		g.TakeCards(player, 2)
+		g.TakeCards(player, 6)
 		g.Players = g.Players.Next()
 	}
 	g.CurrentPlayer = g.Players.Value.(*Player)
@@ -337,39 +331,43 @@ func (g *Game) InitializePlayers(names ...string) {
 
 func (g *Game) InitializeFilters() {
 	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_EXECUTE_AFTER, &ConditionActionType{ACTION_NEW_PHASE}, NewActionStartTurn(SOURCE_PROTOTYPE_PLAYER)})
-	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_REPLACE, NewANDCondition(&ConditionActionType{ACTION_START_TURN}, &ConditionTrait{PARAMETER_PLAYER, TRAIT_PASS}), NewActionNextPlayer(g)})
+	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_REPLACE, NewANDCondition(&ConditionActionType{ACTION_START_TURN}, &ConditionTraitCountEqual{PARAMETER_PLAYER, TRAIT_PASS, 1}), NewActionNextPlayer(g)})
 	var endPhaseConditions = []Condition {&ConditionActionType{ACTION_NEXT_PLAYER}}
 	g.Players.Do(func(val interface{}) {
 		player := val.(*Player)
 		g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_EXECUTE_BEFORE, &ConditionActionType{ACTION_NEW_PHASE}, NewActionRemoveTrait(player, TRAIT_PASS)})
-		endPhaseConditions = append(endPhaseConditions, &ConditionTrait{player, TRAIT_PASS})
+		endPhaseConditions = append(endPhaseConditions, &ConditionTraitCountEqual{player, TRAIT_PASS, 1})
 	})
 	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_REPLACE, NewANDCondition(endPhaseConditions...), NewActionNewPhase(PHASE_FOOD_BANK_DETERMINATION)})
-	g.Filters = append(g.Filters, &FilterAllow{NewActionAddCreature(SOURCE_PROTOTYPE_PLAYER, SOURCE_PROTOTYPE_PLAYER_CARD)})
-	g.Filters = append(g.Filters, &FilterAllow{NewActionAddProperty(SOURCE_PROTOTYPE_PLAYER_CREATURE, SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY)})
-	g.Filters = append(g.Filters, &FilterAllow{NewActionAddTrait(SOURCE_PROTOTYPE_PLAYER, TRAIT_PASS)})
+	g.Filters = append(g.Filters, &FilterAllow{&ConditionPhase{PHASE_DEVELOPMENT}, NewActionAddCreature(SOURCE_PROTOTYPE_PLAYER, SOURCE_PROTOTYPE_PLAYER_CARD)})
+	g.Filters = append(g.Filters, &FilterAllow{&ConditionPhase{PHASE_DEVELOPMENT}, NewActionAddProperty(SOURCE_PROTOTYPE_PLAYER_CREATURE, SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY)})
+	g.Filters = append(g.Filters, &FilterAllow{nil, &Action{ACTION_PASS, map[ArgumentName]Source {}}})
+	
+	g.Filters = append(g.Filters, 
+		&FilterDeny{
+			NewANDCondition(
+				&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
+				&NOTCondition{
+					&ConditionTraitCountEqual{FILTER_SOURCE_PARAMETER_CREATURE, TRAIT_FAT_TISSUE, 1}},
+				&ConditionTraitCountEqual{FILTER_SOURCE_PARAMETER_CREATURE, FILTER_SOURCE_PARAMETER_TRAIT, 1},
+			)})
 	
 	//camouflage
-	/*g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER,
-			NewANDCondition(&ConditionActionType{ACTION_ADD_PROPERTY},&ConditionPropertyName{"camouflage"}),
-			NewActionAddFilter(&FilterDeny{
-				NewANDCondition(&ConditionActionType{ACTION_ATTACK},
-				&NOTCondition{
-					&ConditionTrait{
-						FILTER_SOURCE_PARAMETER_SOURCE_CREATURE,
-						TRAIT_SHART_VISION,
-					},
-				})})})*/
 	g.Filters = append(g.Filters,
 		&FilterDeny{
 			NewANDCondition(
 				&ConditionActionType{ACTION_ATTACK},
-				&ConditionTrait{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_CAMOUFLAGE},
-				&NOTCondition{&ConditionTrait{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_SHART_VISION}},	
+				&ConditionTraitCountEqual{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_CAMOUFLAGE, 1},
+				&ConditionTraitCountEqual{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_SHART_VISION, 0},	
 			)})
-	//g.Filters = append(g.Filters, &FilterDeny{NewANDCondition(ConditionActionType{ACTION_ATTACK}, NOTCondition{ConditionTrait{}})})
+	//burrowing
+	g.Filters = append(g.Filters,
+		&FilterDeny{
+			NewANDCondition(
+				&ConditionActionType{ACTION_ATTACK},
+				&ConditionTraitCountEqual{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_BURROWING, 1},
+				&ConditionTraitCountEqual{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_FED, 1},
+			)})
 }
 
 func (g *Game) AddCard(count int, properties ...Property) {
@@ -385,7 +383,7 @@ func (g *Game) NewCard(properties ...Property) *Card {
 	}
 	card := new(Card)
 	for _,property := range properties {
-		card.Properties = append(card.Properties, Property {Name : property.Name, Traits : property.Traits})
+		card.Properties = append(card.Properties, Property {Traits : property.Traits})
 	}
 	card.ActiveProperty = &card.Properties[0]
 	for i := range card.Properties {
@@ -405,7 +403,7 @@ func (g *Game) ShuffleDeck() {
 func (g *Game) ActionDenied(action *Action) bool {
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_DENY {
-			instantiatedFilter := filter.InstantiateFilterTemplate(action)
+			instantiatedFilter := filter.InstantiateFilterPrototype(action)
 			if instantiatedFilter.CheckCondition(g, action) {
 				return true
 			}
@@ -417,7 +415,7 @@ func (g *Game) ActionDenied(action *Action) bool {
 func (g *Game) GetAlowedActions() []*Action {
 	var result []*Action
 	for _, filter := range g.Filters {
-		if filter.GetType() == FILTER_ALLOW {
+		if filter.GetType() == FILTER_ALLOW && filter.CheckCondition(g, nil) {
 			action := filter.(*FilterAllow).GetAction()
 			result = append(result, g.InstantiateActionPrototype(action)...)
 		}
@@ -440,11 +438,11 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 	}
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
-			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterTemplateAction(action))
+			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action))
 		}
 		if filter.GetType() == FILTER_ACTION_REPLACE && filter.CheckCondition(g, action) {
-			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterTemplateAction(action))
-			fmt.Printf("Replaced %#v with %#v because %#v", action, filter.(*FilterAction).GetAction().InstantiateFilterTemplateAction(action), filter.GetCondition())
+			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action))
+			fmt.Printf("Replaced %#v with %#v because %#v\n", action, filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action), filter.GetCondition())
 			return
 		} 
 	}
@@ -452,7 +450,7 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 	action.Execute(g)
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_ACTION_EXECUTE_BEFORE && filter.CheckCondition(g, action) {
-			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterTemplateAction(action))
+			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action))
 		}
 	}
 }

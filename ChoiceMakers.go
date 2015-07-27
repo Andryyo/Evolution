@@ -1,7 +1,9 @@
 // ConsoleChoiceMaker
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type ChoiceMaker interface {
 	MakeChoice([]*Action) *Action
@@ -21,11 +23,12 @@ func (c ConsoleChoiceMaker) MakeChoice(actions []*Action) *Action {
 	for i, action := range actions {
 		fmt.Printf("%v) %#v\n", i, action)
 	}
-	//var choiceNum int
+	var choiceNum int
 	//_, e := fmt.Scanln(&choiceNum)
-	//if e != nil {
-	//	fmt.Println(e)
-	//}
-	//return actions[choiceNum]
-	return actions[1]
+	_, e := fmt.Scanln(&choiceNum)
+	if e != nil {
+		fmt.Println(e)
+	}
+	return actions[choiceNum]
+	//return actions[1]
 }

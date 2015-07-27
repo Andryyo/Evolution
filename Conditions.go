@@ -3,16 +3,10 @@ package main
 
 import "fmt"
 
-type ConditionParameter int
-
-const (
-	CONDITION_PARAMETER_PLAYER ConditionParameter = iota
-)
-
 type Condition interface {
 	CheckCondition(game *Game, action *Action) bool
 	GoString() string
-	InstantiateFilterTemplateCondition(reason *Action) Condition
+	InstantiateFilterPrototypeCondition(reason *Action) Condition
 }
 
 type ANDCondition struct {
@@ -32,10 +26,10 @@ func (c *ANDCondition) CheckCondition(game *Game, action *Action) bool {
 	return true
 }
 
-func (c *ANDCondition) InstantiateFilterTemplateCondition(reason *Action) Condition {
+func (c *ANDCondition) InstantiateFilterPrototypeCondition(reason *Action) Condition {
 	var conditions []Condition
 	for _,condition := range c.conditions {
-		conditions = append(conditions, condition.InstantiateFilterTemplateCondition(reason))
+		conditions = append(conditions, condition.InstantiateFilterPrototypeCondition(reason))
 	}
 	return NewANDCondition(conditions...)
 }
@@ -81,10 +75,10 @@ func (c *ORCondition) GoString() string {
 	return result
 }
 
-func (c *ORCondition) InstantiateFilterTemplateCondition(reason *Action) Condition {
+func (c *ORCondition) InstantiateFilterPrototypeCondition(reason *Action) Condition {
 	var conditions []Condition
 	for _,condition := range c.conditions {
-		conditions = append(conditions, condition.InstantiateFilterTemplateCondition(reason))
+		conditions = append(conditions, condition.InstantiateFilterPrototypeCondition(reason))
 	}
 	return NewORCondition(conditions...)
 }
@@ -109,8 +103,8 @@ func (c *ConditionActionArguments) GoString() string {
 	return fmt.Sprintf("(%+v == %+v)", c.source, c.argumentName)
 }
 
-func (c *ConditionActionArguments) InstantiateFilterTemplateCondition(reason *Action) Condition {
-	result := &ConditionActionArguments{c.argumentName, InstantiateFilterTemplateParameter(reason, c.source)}
+func (c *ConditionActionArguments) InstantiateFilterPrototypeCondition(reason *Action) Condition {
+	result := &ConditionActionArguments{c.argumentName, InstantiateFilterSourcePrototype(reason, c.source)}
 	return result
 }
 
@@ -126,7 +120,7 @@ func (c *ConditionActionType) GoString() string {
 	return fmt.Sprintf("(Action type %#v)", c.actionType)
 }
 
-func (c *ConditionActionType) InstantiateFilterTemplateCondition(reason *Action) Condition {
+func (c *ConditionActionType) InstantiateFilterPrototypeCondition(reason *Action) Condition {
 	return c
 }
 
@@ -142,51 +136,52 @@ func (c *NOTCondition) GoString() string {
 	return fmt.Sprintf("!%#v", c.condition)
 }
 
-func (c *NOTCondition) InstantiateFilterTemplateCondition(reason *Action) Condition {
-	return c.condition.InstantiateFilterTemplateCondition(reason)
+func (c *NOTCondition) InstantiateFilterPrototypeCondition(reason *Action) Condition {
+	return c.condition.InstantiateFilterPrototypeCondition(reason)
 }
 
-type ConditionTrait struct {
+type ConditionTraitCountEqual struct {
 	source Source
-	trait  TraitType
+	trait  Source
+	value int
 }
 
-func (c *ConditionTrait) CheckCondition(game *Game, action *Action) bool {
+func (c *ConditionTraitCountEqual) CheckCondition(game *Game, action *Action) bool {
 	var source WithTraits
 	if argumentName, ok := c.source.(ArgumentName) ; ok {		
 		source = action.Arguments[argumentName].(WithTraits)
 	} else {
 		source = c.source.(WithTraits)
 	}
+	traitsCount := 0
 	for _, t := range source.GetTraits() {
 		if t == c.trait {
-			return true
+			traitsCount++
 		}
 	}
-	return false
+	return traitsCount == c.value
 }
 
-func (c *ConditionTrait) GoString() string {
-	return fmt.Sprintf("(%#v have trait %#v)", c.source, c.trait)
+func (c *ConditionTraitCountEqual) GoString() string {
+	return fmt.Sprintf("(%#v have %v traits %#v)", c.source, c.value, c.trait)
 }
 
-func (c *ConditionTrait) InstantiateFilterTemplateCondition(reason *Action) Condition {
-	return &ConditionTrait{InstantiateFilterTemplateParameter(reason, c.source), c.trait}
+func (c *ConditionTraitCountEqual) InstantiateFilterPrototypeCondition(reason *Action) Condition {
+	return &ConditionTraitCountEqual{InstantiateFilterSourcePrototype(reason, c.source), InstantiateFilterSourcePrototype(reason, c.trait), c.value}
 }
 
-type ConditionPropertyName struct {
-	name Source
+type ConditionPhase struct {
+	phase PhaseType
 }
 
-func (c *ConditionPropertyName) CheckCondition(game *Game, action *Action) bool {
-	property := action.Arguments[PARAMETER_PROPERTY].(Property)
-	return property.Name == c.name.(string)
+func (c *ConditionPhase) CheckCondition(game *Game, action *Action) bool {
+	return c.phase == game.CurrentPhase
 }
 
-func (c *ConditionPropertyName) GoString() string {
-	return fmt.Sprintf("(Property have name %#v)", c.name)
+func (c *ConditionPhase) GoString() string {
+	return fmt.Sprintf("(Game phase %#v)", c.phase)
 }
 
-func (c *ConditionPropertyName) InstantiateFilterTemplateCondition(reason *Action) Condition {
-	return &ConditionPropertyName{InstantiateFilterTemplateParameter(reason, c.name)}
+func (c *ConditionPhase) InstantiateFilterPrototypeCondition(reason *Action) Condition {
+	return c
 }

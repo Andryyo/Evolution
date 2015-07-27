@@ -3,39 +3,7 @@ package main
 
 import (
 	"fmt"
-)
-
-type ActionType int
-
-const (
-	ACTION_SEQUENCE ActionType = iota
-	ACTION_START_TURN
-	ACTION_NEXT_PLAYER
-	ACTION_ADD_CREATURE
-	ACTION_ADD_PROPERTY
-	ACTION_PASS
-	ACTION_NEW_PHASE
-	ACTION_ADD_TRAIT
-	ACTION_REMOVE_TRAIT
-	ACTION_ADD_FILTER
-	ACTION_REMOVE_FILTER
-	ACTION_ATTACK
-)
-
-type ArgumentName int
-
-const (
-	PARAMETER_PROPERTY ArgumentName = iota
-	PARAMETER_PHASE
-	PARAMETER_PLAYER
-	PARAMETER_CARD
-	PARAMETER_ACTIONS_SEQUENCE
-	PARAMETER_CREATURE
-	PARAMETER_TRAIT
-	PARAMETER_SOURCE
-	PARAMETER_FILTER
-	PARAMETER_SOURCE_CREATURE
-	PARAMETER_TARGET_CREATURE
+	"math/rand"
 )
 
 type Action struct {
@@ -51,11 +19,15 @@ func (a *Action) GoString() string {
 		result += fmt.Sprintf("Create creature using (%#v) card", card)
 	case ACTION_START_TURN:
 		result += fmt.Sprintf("Player %s starts turn", a.Arguments[PARAMETER_PLAYER].(*Player).Name)
-	case ACTION_ADD_PROPERTY:
+	case ACTION_ADD_SINGLE_PROPERTY:
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
 		property := a.Arguments[PARAMETER_PROPERTY].(Property)
 		card := property.ContainingCard
-		result += fmt.Sprintf("Add property %#v(%p) on card %#v(%p) to creature %#v(%p)", property, property, card, card, creature, creature)
+		result += fmt.Sprintf("Add property %#v on card %#v to creature %#v", &property, card, creature)
+	case ACTION_NEXT_PLAYER:
+		result += "Next player"
+	case ACTION_PASS:
+		result += "Pass"
 	default:
 		result += fmt.Sprintf("%+v", a)
 	}
@@ -91,7 +63,7 @@ func (a *Action) Execute(game *Game) {
 		creature := &Creature{card, []*Card{}, player, []TraitType{}}
 		player.Creatures = append(player.Creatures, creature)
 		player.RemoveCard(card)
-	case ACTION_ADD_PROPERTY:
+	case ACTION_ADD_SINGLE_PROPERTY:
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
 		property := a.Arguments[PARAMETER_PROPERTY].(Property)
 		card := property.ContainingCard
@@ -116,6 +88,18 @@ func (a *Action) Execute(game *Game) {
 				game.Filters = append(game.Filters[:i],game.Filters[i+1:]...)
 			} 
 		}
+	case ACTION_NEW_PHASE:
+		phase := a.Arguments[PARAMETER_PHASE].(PhaseType)
+		game.CurrentPhase = phase
+	case ACTION_DETERMINE_FOOD_BANK:
+		foodCount := 0
+		switch game.PlayersCount {
+			case 2: foodCount = rand.Intn(6)+1+2
+			case 3: foodCount = rand.Intn(6)+rand.Intn(6)+2	
+			case 4: foodCount = rand.Intn(6)+rand.Intn(6)+2+1	
+		}
+		game.FoodBank.Count = foodCount
+		game.Actions.PushFront(NewActionNewPhase(PHASE_FEEDING))
 	}
 }
 
@@ -140,7 +124,7 @@ func NewActionAddCreature(player Source, card Source) *Action {
 }
 
 func NewActionAddProperty(creature Source, property Source) *Action {
-	return &Action{ACTION_ADD_PROPERTY, map[ArgumentName]Source{PARAMETER_CREATURE: creature, PARAMETER_PROPERTY: property}}
+	return &Action{ACTION_ADD_SINGLE_PROPERTY, map[ArgumentName]Source{PARAMETER_CREATURE: creature, PARAMETER_PROPERTY: property}}
 }
 
 func NewActionAddTrait(source Source, trait TraitType) *Action {
@@ -161,16 +145,16 @@ func NewActionRemoveFilter(filter Filter) *Action {
 
 
 
-func (a *Action) InstantiateFilterTemplateAction(reason *Action) *Action {
+func (a *Action) InstantiateFilterPrototypeAction(reason *Action) *Action {
 	result := &Action {a.Type, map[ArgumentName]Source {}}
 	for key,argument := range a.Arguments {
 		switch t := argument.(type) {
-			case FilterSourceParameter:
-				result.Arguments[key] = InstantiateFilterTemplateParameter(reason, t)
+			case FilterSourcePrototype:
+				result.Arguments[key] = InstantiateFilterSourcePrototype(reason, t)
 			case Action:
-				result.Arguments[key] = t.InstantiateFilterTemplateAction(reason)
+				result.Arguments[key] = t.InstantiateFilterPrototypeAction(reason)
 			case Filter:
-				result.Arguments[key] = t.InstantiateFilterTemplate(reason)
+				result.Arguments[key] = t.InstantiateFilterPrototype(reason)
 			default:
 				result.Arguments[key] = argument
 		}

@@ -1,32 +1,11 @@
 // Filters
 package main
 
-type FilterType int
-
-const (
-	FILTER_DENY FilterType = iota
-	FILTER_ALLOW
-	FILTER_MODIFY
-	FILTER_ACTION_REPLACE
-	FILTER_ACTION_EXECUTE_BEFORE
-	FILTER_ACTION_EXECUTE_AFTER
-)
-
-type FilterSourceParameter int
-
-const (
-	FILTER_SOURCE_PARAMETER_PLAYER FilterSourceParameter = iota
-	FILTER_SOURCE_PARAMETER_PROPERTY 
-	FILTER_SOURCE_PARAMETER_SOURCE_CREATURE
-	FILTER_SOURCE_PARAMETER_TARGET_CREATURE
-	FILTER_SOURCE_PARAMETER_CREATURE
-)
-
 type Filter interface {
 	GetType() FilterType
 	GetCondition() Condition
 	CheckCondition(game *Game, action *Action) bool
-	InstantiateFilterTemplate(reason *Action) Filter
+	InstantiateFilterPrototype(reason *Action) Filter
 }
 
 type FilterDeny struct {
@@ -45,11 +24,12 @@ func (f *FilterDeny) CheckCondition(game *Game, action *Action) bool {
 	return f.condition == nil || f.condition.CheckCondition(game, action)
 }
 
-func (f *FilterDeny) InstantiateFilterTemplate(reason *Action) Filter {
-	return &FilterDeny{f.condition.InstantiateFilterTemplateCondition(reason)}
+func (f *FilterDeny) InstantiateFilterPrototype(reason *Action) Filter {
+	return &FilterDeny{f.condition.InstantiateFilterPrototypeCondition(reason)}
 }
 
 type FilterAllow struct {
+	condition Condition
 	action *Action
 }
 
@@ -58,7 +38,7 @@ func (f *FilterAllow) GetType() FilterType {
 }
 
 func (f *FilterAllow) GetCondition() Condition {
-	return nil
+	return f.condition
 }
 
 func (f *FilterAllow) GetAction() *Action {
@@ -66,11 +46,11 @@ func (f *FilterAllow) GetAction() *Action {
 }
 
 func (f *FilterAllow) CheckCondition(game *Game, action *Action) bool {
-	return true
+	return f.condition == nil || f.condition.CheckCondition(game, action)
 }
 
-func (f *FilterAllow) InstantiateFilterTemplate(reason *Action) Filter {
-	return &FilterAllow{f.action.InstantiateFilterTemplateAction(reason)}
+func (f *FilterAllow) InstantiateFilterPrototype(reason *Action) Filter {
+	return &FilterAllow{f.condition.InstantiateFilterPrototypeCondition(reason),f.action.InstantiateFilterPrototypeAction(reason)}
 }
 
 type FilterAction struct {
@@ -95,12 +75,12 @@ func (f *FilterAction) CheckCondition(game *Game, action *Action) bool {
 	return f.condition == nil || f.condition.CheckCondition(game, action)
 }
 
-func (f *FilterAction) InstantiateFilterTemplate(reason *Action) Filter {
-	return &FilterAction{f.actionType, f.condition.InstantiateFilterTemplateCondition(reason), f.action.InstantiateFilterTemplateAction(reason)}
+func (f *FilterAction) InstantiateFilterPrototype(reason *Action) Filter {
+	return &FilterAction{f.actionType, f.condition.InstantiateFilterPrototypeCondition(reason), f.action.InstantiateFilterPrototypeAction(reason)}
 }
 
-func InstantiateFilterTemplateParameter(reason *Action, parameter Source) Source {
-	if _, ok := parameter.(FilterSourceParameter) ; ok {
+func InstantiateFilterSourcePrototype(reason *Action, parameter Source) Source {
+	if _, ok := parameter.(FilterSourcePrototype) ; ok {
 		switch parameter {
 			case FILTER_SOURCE_PARAMETER_PLAYER:
 				return reason.Arguments[PARAMETER_PLAYER]
@@ -112,6 +92,8 @@ func InstantiateFilterTemplateParameter(reason *Action, parameter Source) Source
 				return reason.Arguments[PARAMETER_SOURCE_CREATURE]
 			case FILTER_SOURCE_PARAMETER_TARGET_CREATURE:
 				return reason.Arguments[PARAMETER_TARGET_CREATURE]
+			case FILTER_SOURCE_PARAMETER_TRAIT:
+				return reason.Arguments[PARAMETER_TRAIT]
 		}
 	} else {
 		return parameter
