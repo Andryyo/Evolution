@@ -5,7 +5,7 @@ type Filter interface {
 	GetType() FilterType
 	GetCondition() Condition
 	CheckCondition(game *Game, action *Action) bool
-	InstantiateFilterPrototype(reason *Action) Filter
+	InstantiateFilterPrototype(game *Game, reason *Action) Filter
 }
 
 type FilterDeny struct {
@@ -21,11 +21,11 @@ func (f *FilterDeny) GetCondition() Condition {
 }
 
 func (f *FilterDeny) CheckCondition(game *Game, action *Action) bool {
-	return f.condition == nil || f.condition.CheckCondition(game, action)
+	return f.condition == nil || f.condition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
 }
 
-func (f *FilterDeny) InstantiateFilterPrototype(reason *Action) Filter {
-	return &FilterDeny{f.condition.InstantiateFilterPrototypeCondition(reason)}
+func (f *FilterDeny) InstantiateFilterPrototype(game *Game, reason *Action) Filter {
+	return &FilterDeny{f.condition.InstantiateFilterPrototypeCondition(game, reason)}
 }
 
 type FilterAllow struct {
@@ -46,11 +46,11 @@ func (f *FilterAllow) GetAction() *Action {
 }
 
 func (f *FilterAllow) CheckCondition(game *Game, action *Action) bool {
-	return f.condition == nil || f.condition.CheckCondition(game, action)
+	return f.condition == nil || f.condition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
 }
 
-func (f *FilterAllow) InstantiateFilterPrototype(reason *Action) Filter {
-	return &FilterAllow{f.condition.InstantiateFilterPrototypeCondition(reason),f.action.InstantiateFilterPrototypeAction(reason)}
+func (f *FilterAllow) InstantiateFilterPrototype(game *Game, reason *Action) Filter {
+	return &FilterAllow{f.condition.InstantiateFilterPrototypeCondition(game, reason),f.action.InstantiateFilterPrototypeAction(game, reason)}
 }
 
 type FilterAction struct {
@@ -72,31 +72,42 @@ func (f *FilterAction) GetCondition() Condition {
 }
 
 func (f *FilterAction) CheckCondition(game *Game, action *Action) bool {
-	return f.condition == nil || f.condition.CheckCondition(game, action)
+	return f.condition == nil || f.condition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
 }
 
-func (f *FilterAction) InstantiateFilterPrototype(reason *Action) Filter {
-	return &FilterAction{f.actionType, f.condition.InstantiateFilterPrototypeCondition(reason), f.action.InstantiateFilterPrototypeAction(reason)}
+func (f *FilterAction) InstantiateFilterPrototype(game *Game, reason *Action) Filter {
+	return &FilterAction{
+				f.actionType, 
+				f.condition.InstantiateFilterPrototypeCondition(game, reason), 
+				f.action.InstantiateFilterPrototypeAction(game, reason),
+			}
 }
 
-func InstantiateFilterSourcePrototype(reason *Action, parameter Source) Source {
+func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Source) []Source {
 	if _, ok := parameter.(FilterSourcePrototype) ; ok {
 		switch parameter {
 			case FILTER_SOURCE_PARAMETER_PLAYER:
-				return reason.Arguments[PARAMETER_PLAYER]
+				return []Source{reason.Arguments[PARAMETER_PLAYER]}
 			case FILTER_SOURCE_PARAMETER_PROPERTY:
-				return reason.Arguments[PARAMETER_PROPERTY]
+				return []Source{reason.Arguments[PARAMETER_PROPERTY]}
 			case FILTER_SOURCE_PARAMETER_CREATURE:
-				return reason.Arguments[PARAMETER_CREATURE]
+				return []Source{reason.Arguments[PARAMETER_CREATURE]}
 			case FILTER_SOURCE_PARAMETER_SOURCE_CREATURE:
-				return reason.Arguments[PARAMETER_SOURCE_CREATURE]
+				return []Source{reason.Arguments[PARAMETER_SOURCE_CREATURE]}
 			case FILTER_SOURCE_PARAMETER_TARGET_CREATURE:
-				return reason.Arguments[PARAMETER_TARGET_CREATURE]
+				return []Source{reason.Arguments[PARAMETER_TARGET_CREATURE]}
 			case FILTER_SOURCE_PARAMETER_TRAIT:
-				return reason.Arguments[PARAMETER_TRAIT]
+				return []Source{reason.Arguments[PARAMETER_TRAIT]}
+			case FILTER_SOURCE_PARAMETER_ALL_PLAYERS:
+				result := make([]Source, 0, game.PlayersCount)
+				game.Players.Do(func (player interface{}) {
+					result = append(result, player.(*Player))
+				})
+				return result
+				
 		}
 	} else {
-		return parameter
+		return []Source{parameter}
 	}
-	return nil
+	panic("Invalid instantiation parameter")
 }

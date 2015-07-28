@@ -28,6 +28,19 @@ func (a *Action) GoString() string {
 		result += "Next player"
 	case ACTION_PASS:
 		result += "Pass"
+	case ACTION_NEW_PHASE:
+		switch a.Arguments[PARAMETER_PHASE] {
+			case PHASE_DEVELOPMENT:
+				result += "Starting phase development"
+			case PHASE_FOOD_BANK_DETERMINATION:
+				result += "Starting phase food bank determination"
+			case PHASE_FEEDING:
+				result += "Starting phase feeding"
+			case PHASE_EXTINCTION:
+				result += "It's extinction time!"
+		}
+	case ACTION_SEQUENCE:
+		result += "Unpacking action sequence"
 	default:
 		result += fmt.Sprintf("%+v", a)
 	}
@@ -145,20 +158,53 @@ func NewActionRemoveFilter(filter Filter) *Action {
 
 
 
-func (a *Action) InstantiateFilterPrototypeAction(reason *Action) *Action {
-	result := &Action {a.Type, map[ArgumentName]Source {}}
+func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action) *Action {
+	actionVariants := make([]map[ArgumentName]Source, 0, 1)
+	actionVariants = append(actionVariants, make(map[ArgumentName]Source))
 	for key,argument := range a.Arguments {
 		switch t := argument.(type) {
 			case FilterSourcePrototype:
-				result.Arguments[key] = InstantiateFilterSourcePrototype(reason, t)
+				sources := InstantiateFilterSourcePrototype(game, reason, t)
+				if len(sources) == 1 {
+					for i := range actionVariants {
+						actionVariants[i][key] = sources[0]
+					}
+				} else {
+					tmpActionVariants := make([]map[ArgumentName]Source, 0, len(sources) * len(actionVariants))
+					for _,variant := range actionVariants {
+						for _,source := range sources {
+							tmpVariant := make(map[ArgumentName]Source)
+							for argumentName := range variant {
+								tmpVariant[argumentName] = variant[argumentName]
+							}
+							tmpVariant[key] = source
+							tmpActionVariants = append(tmpActionVariants, tmpVariant)	
+						}
+					}					
+					actionVariants = tmpActionVariants
+				}
 			case Action:
-				result.Arguments[key] = t.InstantiateFilterPrototypeAction(reason)
+				for i := range actionVariants {
+					actionVariants[i][key] = t.InstantiateFilterPrototypeAction(game, reason)
+				}
 			case Filter:
-				result.Arguments[key] = t.InstantiateFilterPrototype(reason)
+				for i := range actionVariants {
+					actionVariants[i][key] = t.InstantiateFilterPrototype(game, reason)
+				}
 			default:
-				result.Arguments[key] = argument
+				for i := range actionVariants {
+					actionVariants[i][key] = argument
+				}
 		}
 	}
-	return result
+	if len(actionVariants) == 1 {
+		return &Action{a.Type, actionVariants[0]}
+	} else {
+		actions := make([]*Action, 0, len(actionVariants))
+		for _,variant := range actionVariants {
+			actions = append(actions, &Action{a.Type, variant})
+		}
+		return NewActionSequence(actions...)
+	}
 }
 

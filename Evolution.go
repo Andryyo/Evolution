@@ -6,6 +6,7 @@ import (
 	"container/ring"
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 type Game struct {
@@ -250,13 +251,9 @@ func NewGame(players ...string) *Game {
 	game.Actions.PushBack(NewActionNewPhase(PHASE_DEVELOPMENT))
 
 	for action := game.Actions.Front(); action != nil; action = game.Actions.Front() {
-		/*fmt.Println("//////////////\nActions Stack:")
-		for tmp := game.Actions.Front(); tmp != nil; tmp = tmp.Next() {
-			fmt.Printf("%#v\n",tmp.Value.(*Action))
-		}
-		fmt.Println("//////////////")*/
 		game.Actions.Remove(action)
 		game.ExecuteAction(action.Value.(*Action))
+		time.Sleep(time.Second)
 	}
 	return game
 }
@@ -332,13 +329,9 @@ func (g *Game) InitializePlayers(names ...string) {
 func (g *Game) InitializeFilters() {
 	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_EXECUTE_AFTER, &ConditionActionType{ACTION_NEW_PHASE}, NewActionStartTurn(SOURCE_PROTOTYPE_PLAYER)})
 	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_REPLACE, NewANDCondition(&ConditionActionType{ACTION_START_TURN}, &ConditionTraitCountEqual{PARAMETER_PLAYER, TRAIT_PASS, 1}), NewActionNextPlayer(g)})
-	var endPhaseConditions = []Condition {&ConditionActionType{ACTION_NEXT_PLAYER}}
-	g.Players.Do(func(val interface{}) {
-		player := val.(*Player)
-		g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_EXECUTE_BEFORE, &ConditionActionType{ACTION_NEW_PHASE}, NewActionRemoveTrait(player, TRAIT_PASS)})
-		endPhaseConditions = append(endPhaseConditions, &ConditionTraitCountEqual{player, TRAIT_PASS, 1})
-	})
-	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_REPLACE, NewANDCondition(endPhaseConditions...), NewActionNewPhase(PHASE_FOOD_BANK_DETERMINATION)})
+	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_EXECUTE_BEFORE, &ConditionActionType{ACTION_NEW_PHASE}, NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_ALL_PLAYERS, TRAIT_PASS)})
+	g.Filters = append(g.Filters, &FilterAction{FILTER_ACTION_REPLACE, NewANDCondition(&ConditionActionType{ACTION_NEXT_PLAYER},&ConditionTraitCountEqual{FILTER_SOURCE_PARAMETER_ALL_PLAYERS, TRAIT_PASS, 1}), NewActionNewPhase(PHASE_FOOD_BANK_DETERMINATION)})
+	g.Filters = append(g.Filters, &FilterAllow{&ConditionPhase{PHASE_DEVELOPMENT}, NewActionAddCreature(SOURCE_PROTOTYPE_PLAYER, SOURCE_PROTOTYPE_PLAYER_CARD)})
 	g.Filters = append(g.Filters, &FilterAllow{&ConditionPhase{PHASE_DEVELOPMENT}, NewActionAddCreature(SOURCE_PROTOTYPE_PLAYER, SOURCE_PROTOTYPE_PLAYER_CARD)})
 	g.Filters = append(g.Filters, &FilterAllow{&ConditionPhase{PHASE_DEVELOPMENT}, NewActionAddProperty(SOURCE_PROTOTYPE_PLAYER_CREATURE, SOURCE_PROTOTYPE_PLAYER_CARD_PROPERTY)})
 	g.Filters = append(g.Filters, &FilterAllow{nil, &Action{ACTION_PASS, map[ArgumentName]Source {}}})
@@ -403,7 +396,7 @@ func (g *Game) ShuffleDeck() {
 func (g *Game) ActionDenied(action *Action) bool {
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_DENY {
-			instantiatedFilter := filter.InstantiateFilterPrototype(action)
+			instantiatedFilter := filter.InstantiateFilterPrototype(g, action)
 			if instantiatedFilter.CheckCondition(g, action) {
 				return true
 			}
@@ -438,11 +431,11 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 	}
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
-			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action))
+			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(g, action))
 		}
 		if filter.GetType() == FILTER_ACTION_REPLACE && filter.CheckCondition(g, action) {
-			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action))
-			fmt.Printf("Replaced %#v with %#v because %#v\n", action, filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action), filter.GetCondition())
+			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(g, action))
+			fmt.Printf("Replaced %#v with %#v because %#v\n", action, filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(g, action), filter.GetCondition())
 			return
 		} 
 	}
@@ -450,7 +443,7 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 	action.Execute(g)
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_ACTION_EXECUTE_BEFORE && filter.CheckCondition(g, action) {
-			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(action))
+			g.Actions.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(g, action))
 		}
 	}
 }

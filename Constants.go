@@ -21,7 +21,29 @@ const (
 	FILTER_SOURCE_PARAMETER_TARGET_CREATURE
 	FILTER_SOURCE_PARAMETER_CREATURE
 	FILTER_SOURCE_PARAMETER_TRAIT
+	FILTER_SOURCE_PARAMETER_ALL_PLAYERS
 )
+
+func (t FilterSourcePrototype) GoString() string {
+	switch t {
+		case FILTER_SOURCE_PARAMETER_PLAYER:
+			return "Player"
+		case FILTER_SOURCE_PARAMETER_PROPERTY:
+			return "Property"
+		case FILTER_SOURCE_PARAMETER_SOURCE_CREATURE:
+			return "Source creature"
+		case FILTER_SOURCE_PARAMETER_TARGET_CREATURE:
+			return "Target creature"
+		case FILTER_SOURCE_PARAMETER_CREATURE:
+			return "Creature"
+		case FILTER_SOURCE_PARAMETER_TRAIT:
+			return "Trait"
+		case FILTER_SOURCE_PARAMETER_ALL_PLAYERS:
+			return "All players"
+		default:
+			return string(t)
+	}
+}
 
 type TraitType int
 
