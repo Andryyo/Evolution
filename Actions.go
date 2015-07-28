@@ -24,6 +24,11 @@ func (a *Action) GoString() string {
 		property := a.Arguments[PARAMETER_PROPERTY].(Property)
 		card := property.ContainingCard
 		result += fmt.Sprintf("Add property %#v on card %#v to creature %#v", &property, card, creature)
+	case ACTION_ADD_PAIR_PROPERTY:
+		creatures := a.Arguments[PARAMETER_PAIR].([]*Creature)
+		property := a.Arguments[PARAMETER_PROPERTY].(Property)
+		card := property.ContainingCard
+		result += fmt.Sprintf("Add property %#v on card %#v to creatures %#v and %#v", &property, card, creatures[0], creatures[1])
 	case ACTION_NEXT_PLAYER:
 		result += "Next player"
 	case ACTION_PASS:
@@ -83,6 +88,16 @@ func (a *Action) Execute(game *Game) {
 		card.ActiveProperty = &property
 		creature.Tail = append(creature.Tail, card)
 		creature.Owner.RemoveCard(card)
+	case ACTION_ADD_PAIR_PROPERTY:
+		creatures := a.Arguments[PARAMETER_PAIR].([]*Creature)
+		property := a.Arguments[PARAMETER_PROPERTY].(Property)
+		card := property.ContainingCard
+		players := make([]*Player, 0, 2)
+		for _,creature := range creatures {
+			players = append(players, creature.Owner)
+			creature.Tail = append(creature.Tail, card)
+		}
+		card.Owners[0].RemoveCard(card)
 	case ACTION_ADD_TRAIT:
 		trait := a.Arguments[PARAMETER_TRAIT].(TraitType)
 		source := a.Arguments[PARAMETER_SOURCE].(WithTraits)
@@ -94,13 +109,6 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_ADD_FILTER:
 		filter := a.Arguments[PARAMETER_FILTER].(Filter)
 		game.Filters = append(game.Filters, filter)
-	case ACTION_REMOVE_FILTER:
-		filter := a.Arguments[PARAMETER_FILTER].(Filter)
-		for i,f := range game.Filters {
-			if f == filter {
-				game.Filters = append(game.Filters[:i],game.Filters[i+1:]...)
-			} 
-		}
 	case ACTION_NEW_PHASE:
 		phase := a.Arguments[PARAMETER_PHASE].(PhaseType)
 		game.CurrentPhase = phase
@@ -136,7 +144,7 @@ func NewActionAddCreature(player Source, card Source) *Action {
 	return &Action{ACTION_ADD_CREATURE, map[ArgumentName]Source{PARAMETER_PLAYER: player, PARAMETER_CARD: card}}
 }
 
-func NewActionAddProperty(creature Source, property Source) *Action {
+func NewActionAddSingleProperty(creature Source, property Source) *Action {
 	return &Action{ACTION_ADD_SINGLE_PROPERTY, map[ArgumentName]Source{PARAMETER_CREATURE: creature, PARAMETER_PROPERTY: property}}
 }
 
@@ -152,8 +160,8 @@ func NewActionAddFilter(filter Filter) *Action {
 	return &Action{ACTION_ADD_FILTER, map[ArgumentName]Source{PARAMETER_FILTER : filter}}
 }
 
-func NewActionRemoveFilter(filter Filter) *Action {
-	return &Action{ACTION_REMOVE_FILTER, map[ArgumentName]Source{PARAMETER_FILTER : filter}}
+func NewActionAddPairProperty(creatures Source, property Source) *Action {
+	return &Action{ACTION_ADD_PAIR_PROPERTY, map[ArgumentName]Source{PARAMETER_PAIR: creatures, PARAMETER_PROPERTY: property}}
 }
 
 

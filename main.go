@@ -7,6 +7,5 @@ import (
 
 func main() {
 	fmt.Println("Let's start game!")
-	game := NewGame("Andrii", "Opponent")
-	game.ShuffleDeck()
+	NewGame("Andrii", "Opponent")
 }

@@ -49,6 +49,8 @@ type TraitType int
 
 const (
 	TRAIT_PASS TraitType = iota
+	TRAIT_NEXT_PLAYER
+	TRAIT_TOOK_FOOD
 	TRAIT_SHART_VISION
 	TRAIT_CAMOUFLAGE
 	TRAIT_BURROWING
@@ -58,12 +60,17 @@ const (
 	TRAIT_FOOD
 	TRAIT_ADDITIONAL_FOOD
 	TRAIT_FAT
+	TRAIT_SIMBIOSYS
 )
 
 func (t TraitType) GoString() string {
 	switch t {
 		case TRAIT_PASS:
 			return "Pass"
+		case TRAIT_NEXT_PLAYER:
+			return "Next player turn"
+		case TRAIT_TOOK_FOOD:
+			return "Already took food"
 		case TRAIT_SHART_VISION:
 			return "Sharp vision"
 		case TRAIT_CAMOUFLAGE:
@@ -73,7 +80,9 @@ func (t TraitType) GoString() string {
 		case TRAIT_FED:
 			return "Fed"
 		case TRAIT_PAIR:
-			return "Pait"
+			return "Pair"
+		case TRAIT_SIMBIOSYS:
+			return "Simbiosys"
 		case TRAIT_FAT_TISSUE:
 			return "Fat tissue"
 		case TRAIT_FOOD:
@@ -123,12 +132,12 @@ const (
 	ACTION_NEXT_PLAYER
 	ACTION_ADD_CREATURE
 	ACTION_ADD_SINGLE_PROPERTY
+	ACTION_ADD_PAIR_PROPERTY
 	ACTION_PASS
 	ACTION_NEW_PHASE
 	ACTION_ADD_TRAIT
 	ACTION_REMOVE_TRAIT
 	ACTION_ADD_FILTER
-	ACTION_REMOVE_FILTER
 	ACTION_ATTACK
 	ACTION_DETERMINE_FOOD_BANK
 )
@@ -139,6 +148,7 @@ const (
 	PARAMETER_PROPERTY ArgumentName = iota
 	PARAMETER_PHASE
 	PARAMETER_PLAYER
+	PARAMETER_PAIR
 	PARAMETER_CARD
 	PARAMETER_ACTIONS_SEQUENCE
 	PARAMETER_CREATURE

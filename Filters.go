@@ -5,11 +5,13 @@ type Filter interface {
 	GetType() FilterType
 	GetCondition() Condition
 	CheckCondition(game *Game, action *Action) bool
+	CheckRemoveCondition(game *Game, action *Action) bool
 	InstantiateFilterPrototype(game *Game, reason *Action) Filter
 }
 
 type FilterDeny struct {
 	condition Condition
+	removeCondition Condition
 }
 
 func (f *FilterDeny) GetType() FilterType {
@@ -24,12 +26,25 @@ func (f *FilterDeny) CheckCondition(game *Game, action *Action) bool {
 	return f.condition == nil || f.condition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
 }
 
+func (f *FilterDeny) CheckRemoveCondition(game *Game, action *Action) bool {
+	return f.removeCondition != nil && f.removeCondition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
+}
+
 func (f *FilterDeny) InstantiateFilterPrototype(game *Game, reason *Action) Filter {
-	return &FilterDeny{f.condition.InstantiateFilterPrototypeCondition(game, reason)}
+	var condition Condition
+	var removeCondition Condition
+	if f.condition != nil {
+		condition = f.condition.InstantiateFilterPrototypeCondition(game, reason)
+	}
+	if f.removeCondition != nil {
+		removeCondition = f.removeCondition.InstantiateFilterPrototypeCondition(game, reason)
+	}
+	return &FilterDeny{condition, removeCondition}
 }
 
 type FilterAllow struct {
 	condition Condition
+	removeCondition Condition
 	action *Action
 }
 
@@ -49,13 +64,18 @@ func (f *FilterAllow) CheckCondition(game *Game, action *Action) bool {
 	return f.condition == nil || f.condition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
 }
 
+func (f *FilterAllow) CheckRemoveCondition(game *Game, action *Action) bool {
+	return f.removeCondition != nil && f.removeCondition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
+}
+
 func (f *FilterAllow) InstantiateFilterPrototype(game *Game, reason *Action) Filter {
-	return &FilterAllow{f.condition.InstantiateFilterPrototypeCondition(game, reason),f.action.InstantiateFilterPrototypeAction(game, reason)}
+	return &FilterAllow{f.condition.InstantiateFilterPrototypeCondition(game, reason), f.removeCondition.InstantiateFilterPrototypeCondition(game, reason), f.action.InstantiateFilterPrototypeAction(game, reason)}
 }
 
 type FilterAction struct {
 	actionType FilterType
 	condition Condition
+	removeCondition Condition
 	action    *Action
 }
 
@@ -75,10 +95,15 @@ func (f *FilterAction) CheckCondition(game *Game, action *Action) bool {
 	return f.condition == nil || f.condition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
 }
 
+func (f *FilterAction) CheckRemoveCondition(game *Game, action *Action) bool {
+	return f.removeCondition != nil && f.removeCondition.InstantiateFilterPrototypeCondition(game, action).CheckCondition(game, action)
+}
+
 func (f *FilterAction) InstantiateFilterPrototype(game *Game, reason *Action) Filter {
 	return &FilterAction{
 				f.actionType, 
 				f.condition.InstantiateFilterPrototypeCondition(game, reason), 
+				f.removeCondition.InstantiateFilterPrototypeCondition(game, reason),
 				f.action.InstantiateFilterPrototypeAction(game, reason),
 			}
 }
@@ -100,7 +125,7 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 				return []Source{reason.Arguments[PARAMETER_TRAIT]}
 			case FILTER_SOURCE_PARAMETER_ALL_PLAYERS:
 				result := make([]Source, 0, game.PlayersCount)
-				game.Players.Do(func (player interface{}) {
+				game.Players.Do(func 	(player interface{}) {
 					result = append(result, player.(*Player))
 				})
 				return result
