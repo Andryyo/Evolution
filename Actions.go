@@ -60,27 +60,21 @@ func (a *Action) Execute(game *Game) {
 	switch a.Type {
 	case ACTION_SEQUENCE:
 		for _, action := range a.Arguments[PARAMETER_ACTIONS].([]*Action) {
-			game.Actions.PushFront(action)
+			game.ExecuteAction(action)
 		}
 	case ACTION_SELECT:
-		game.Actions.PushFront(a.Arguments[PARAMETER_PLAYER].(*Player).MakeChoice(game, a.Arguments[PARAMETER_ACTIONS].([]*Action)))
+		game.ExecuteAction(a.Arguments[PARAMETER_PLAYER].(*Player).MakeChoice(game, a.Arguments[PARAMETER_ACTIONS].([]*Action)))
 	case ACTION_START_TURN:
 		player := a.Arguments[PARAMETER_PLAYER].(*Player)
 		actions := game.GetAlowedActions()
 		action := player.MakeChoice(game, actions)
-		if action == nil {
-			game.Actions.PushFront(NewActionNextPlayer(game))
-			game.Actions.PushFront(NewActionAddTrait(player, TRAIT_PASS))
-			break
-		}
-		//game.Actions.PushFront(NewActionNextPlayer(game))
-		game.Actions.PushFront(action)
+		game.ExecuteAction(action)
 	case ACTION_PASS:
-		game.Actions.PushFront(NewActionAddTrait(game.CurrentPlayer, TRAIT_PASS))
+		game.ExecuteAction(NewActionAddTrait(game.CurrentPlayer, TRAIT_PASS))
 	case ACTION_NEXT_PLAYER:
 		game.Players = game.Players.Next()
 		game.CurrentPlayer = game.Players.Value.(*Player)
-		game.Actions.PushFront(NewActionStartTurn(game.CurrentPlayer))
+		game.ExecuteAction(NewActionStartTurn(game.CurrentPlayer))
 	case ACTION_ADD_CREATURE:
 		card := a.Arguments[PARAMETER_CARD].(*Card)
 		player := a.Arguments[PARAMETER_PLAYER].(*Player)
@@ -132,7 +126,7 @@ func (a *Action) Execute(game *Game) {
 			return
 		}
 		game.Food--
-		game.Actions.PushFront(NewActionAddTrait(creature, TRAIT_FOOD))
+		game.ExecuteAction(NewActionAddTrait(creature, TRAIT_FOOD))
 	}
 }
 

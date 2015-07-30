@@ -394,7 +394,7 @@ func (g *Game) InitializeFilters() {
 			nil,
 			NewActionStartTurn(SOURCE_PROTOTYPE_PLAYER)})
 			
-	//Pass turn to next player
+	//Alow pass turn to next player in feeding mode
 	g.Filters = append(g.Filters,
 		NewFilterAllow(
 			&ConditionPhase{PHASE_FEEDING},
@@ -404,6 +404,22 @@ func (g *Game) InitializeFilters() {
 					&ConditionActionType{ACTION_START_TURN},
 					&ConditionActionType{ACTION_NEXT_PLAYER},
 					NewActionNextPlayer(g)})))
+			
+	//In feeding phase player make turns, until pass
+	g.Filters = append(g.Filters,
+		&FilterAction{
+			FILTER_ACTION_EXECUTE_AFTER,
+			NewANDCondition(&ConditionPhase{PHASE_FEEDING},&ConditionActionType{ACTION_START_TURN}),
+			nil,
+			NewActionStartTurn(FILTER_SOURCE_PARAMETER_PLAYER)})
+			
+	//In development phase player pass turn to next player
+	g.Filters = append(g.Filters,
+	&FilterAction{
+		FILTER_ACTION_EXECUTE_AFTER,
+		NewANDCondition(&ConditionPhase{PHASE_DEVELOPMENT}, &ConditionActionType{ACTION_START_TURN}),
+		nil,
+		NewActionNextPlayer(g)})
 			
 	//Allow adding creatures in develompent phase
 	g.Filters = append(g.Filters, NewFilterAllow(&ConditionPhase{PHASE_DEVELOPMENT}, nil, NewActionAddCreature(SOURCE_PROTOTYPE_PLAYER, SOURCE_PROTOTYPE_PLAYER_CARD)))
@@ -580,22 +596,6 @@ func (g *Game) InitializeFilters() {
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(SourceWrapper{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
 	
-	//In feeding phase player make turns, until pass
-	g.Filters = append(g.Filters,
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_LATER,
-			NewANDCondition(&ConditionPhase{PHASE_FEEDING},&ConditionActionType{ACTION_START_TURN}),
-			nil,
-			NewActionStartTurn(FILTER_SOURCE_PARAMETER_PLAYER)})
-			
-	//In development phase player pass turn to next player
-	g.Filters = append(g.Filters,
-	&FilterAction{
-		FILTER_ACTION_EXECUTE_LATER,
-		NewANDCondition(&ConditionPhase{PHASE_DEVELOPMENT}, &ConditionActionType{ACTION_START_TURN}),
-		nil,
-		NewActionNextPlayer(g)})
-	
 }
 
 func (g *Game) AddCard(count int, properties ...Property) {
@@ -669,28 +669,25 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 	} else {
 		action = variants[0]
 	}
-	for _, filter := range g.Filters {
-		if filter.GetType() == FILTER_ACTION_EXECUTE_BEFORE && filter.CheckCondition(g, action) {
-			g.ExecuteAction(filter.InstantiateFilterPrototype(g, action).(*FilterAction).GetAction())
-		}
+	for i, filter := range g.Filters {
 		if filter.GetType() == FILTER_ACTION_REPLACE && filter.CheckCondition(g, action) {
 			g.Actions.PushFront(filter.InstantiateFilterPrototype(g, action).(*FilterAction).GetAction())
 			fmt.Printf("Replaced %#v with %#v because %#v\n", action, filter.InstantiateFilterPrototype(g, action).(*FilterAction).GetAction(), filter.GetCondition())
 			return
-		} 
-	}
-	fmt.Printf("Executing action: %#v\n", action)
-	action.Execute(g)
-	for i, filter := range g.Filters {
-		if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
-			g.Actions.PushFront(filter.InstantiateFilterPrototype(g, action).(*FilterAction).GetAction())
-		}
-		if filter.GetType() == FILTER_ACTION_EXECUTE_LATER && filter.CheckCondition(g, action) {
-			g.Actions.PushBack(filter.InstantiateFilterPrototype(g, action).(*FilterAction).GetAction())
 		}
 		if filter.CheckRemoveCondition(g, action) {
 			fmt.Printf("Removing filter %#v because &#v", filter, filter.GetCondition())
 			g.Filters = append(g.Filters[:i], g.Filters[i+1:]...)
+		}
+		if filter.GetType() == FILTER_ACTION_EXECUTE_BEFORE && filter.CheckCondition(g, action) {
+			g.ExecuteAction(filter.InstantiateFilterPrototype(g, action).(*FilterAction).GetAction())
+		} 
+	}
+	fmt.Printf("Executing action: %#v\n", action)
+	action.Execute(g)
+	for _, filter := range g.Filters {
+		if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
+			g.Actions.PushFront(filter.InstantiateFilterPrototype(g, action).(*FilterAction).GetAction())
 		}
 	}
 }
