@@ -46,6 +46,10 @@ func (a *Action) GoString() string {
 		}
 	case ACTION_SEQUENCE:
 		result += "Unpacking action sequence"
+	case ACTION_ADD_FILTERS:
+		result += fmt.Sprintf("Add filter %#v",a.Arguments[PARAMETER_FILTERS])
+	case ACTION_GET_FOOD_FROM_BANK:
+		result += fmt.Sprintf("Give food from bank to creature %#v",a.Arguments[PARAMETER_CREATURE])
 	default:
 		result += fmt.Sprintf("%+v", a)
 	}
@@ -55,19 +59,21 @@ func (a *Action) GoString() string {
 func (a *Action) Execute(game *Game) {
 	switch a.Type {
 	case ACTION_SEQUENCE:
-		for _, action := range a.Arguments[PARAMETER_ACTIONS_SEQUENCE].([]*Action) {
+		for _, action := range a.Arguments[PARAMETER_ACTIONS].([]*Action) {
 			game.Actions.PushFront(action)
 		}
+	case ACTION_SELECT:
+		game.Actions.PushFront(a.Arguments[PARAMETER_PLAYER].(*Player).MakeChoice(game, a.Arguments[PARAMETER_ACTIONS].([]*Action)))
 	case ACTION_START_TURN:
 		player := a.Arguments[PARAMETER_PLAYER].(*Player)
 		actions := game.GetAlowedActions()
-		action := player.MakeChoice(actions)
+		action := player.MakeChoice(game, actions)
 		if action == nil {
 			game.Actions.PushFront(NewActionNextPlayer(game))
 			game.Actions.PushFront(NewActionAddTrait(player, TRAIT_PASS))
 			break
 		}
-		game.Actions.PushFront(NewActionNextPlayer(game))
+		//game.Actions.PushFront(NewActionNextPlayer(game))
 		game.Actions.PushFront(action)
 	case ACTION_PASS:
 		game.Actions.PushFront(NewActionAddTrait(game.CurrentPlayer, TRAIT_PASS))
@@ -78,7 +84,7 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_ADD_CREATURE:
 		card := a.Arguments[PARAMETER_CARD].(*Card)
 		player := a.Arguments[PARAMETER_PLAYER].(*Player)
-		creature := &Creature{card, []*Card{}, player, []TraitType{}}
+		creature := &Creature{card, []*Card{}, player, []TraitType{TRAIT_REQUIRE_FOOD}}
 		player.Creatures = append(player.Creatures, creature)
 		player.RemoveCard(card)
 	case ACTION_ADD_SINGLE_PROPERTY:
@@ -106,9 +112,9 @@ func (a *Action) Execute(game *Game) {
 		trait := a.Arguments[PARAMETER_TRAIT].(TraitType)
 		source := a.Arguments[PARAMETER_SOURCE].(WithTraits)
 		source.RemoveTrait(trait)
-	case ACTION_ADD_FILTER:
-		filter := a.Arguments[PARAMETER_FILTER].(Filter)
-		game.Filters = append(game.Filters, filter)
+	case ACTION_ADD_FILTERS:
+		filters := a.Arguments[PARAMETER_FILTERS].([]Filter)
+		game.Filters = append(game.Filters, filters...)
 	case ACTION_NEW_PHASE:
 		phase := a.Arguments[PARAMETER_PHASE].(PhaseType)
 		game.CurrentPhase = phase
@@ -119,8 +125,14 @@ func (a *Action) Execute(game *Game) {
 			case 3: foodCount = rand.Intn(6)+rand.Intn(6)+2	
 			case 4: foodCount = rand.Intn(6)+rand.Intn(6)+2+1	
 		}
-		game.FoodBank.Count = foodCount
-		game.Actions.PushFront(NewActionNewPhase(PHASE_FEEDING))
+		game.Food = foodCount
+	case ACTION_GET_FOOD_FROM_BANK:
+		creature := a.Arguments[PARAMETER_CREATURE]
+		if game.Food == 0 {
+			return
+		}
+		game.Food--
+		game.Actions.PushFront(NewActionAddTrait(creature, TRAIT_FOOD))
 	}
 }
 
@@ -132,9 +144,23 @@ func NewActionNextPlayer(game *Game) *Action {
 	return &Action{ACTION_NEXT_PLAYER, map[ArgumentName]Source{}}
 }
 
-func NewActionSequence(actions ...*Action) *Action {
-	return &Action{ACTION_SEQUENCE, map[ArgumentName]Source{PARAMETER_ACTIONS_SEQUENCE: actions}}
+func NewActionGetFoodFromBank(creature Source) *Action {
+	return &Action{ACTION_GET_FOOD_FROM_BANK, map[ArgumentName]Source{PARAMETER_CREATURE: creature}}
 }
+
+func NewActionSequence(actions ...*Action) *Action {
+	if len(actions) == 1 {
+		return &Action{actions[0].Type, actions[0].Arguments}
+	}
+	return &Action{ACTION_SEQUENCE, map[ArgumentName]Source{PARAMETER_ACTIONS: actions}}
+}
+
+func NewActionSelect(actions ...*Action) *Action {
+	if len(actions) == 1 {
+		return &Action{actions[0].Type, actions[0].Arguments}
+	}
+	return &Action{ACTION_SELECT, map[ArgumentName]Source{PARAMETER_ACTIONS: actions}}
+} 
 
 func NewActionNewPhase(phaseType PhaseType) *Action {
 	return &Action{ACTION_NEW_PHASE, map[ArgumentName]Source{PARAMETER_PHASE: phaseType}}
@@ -148,7 +174,7 @@ func NewActionAddSingleProperty(creature Source, property Source) *Action {
 	return &Action{ACTION_ADD_SINGLE_PROPERTY, map[ArgumentName]Source{PARAMETER_CREATURE: creature, PARAMETER_PROPERTY: property}}
 }
 
-func NewActionAddTrait(source Source, trait TraitType) *Action {
+func NewActionAddTrait(source Source, trait Source) *Action {
 	return &Action{ACTION_ADD_TRAIT, map[ArgumentName]Source{PARAMETER_SOURCE: source, PARAMETER_TRAIT: trait}}
 }
 
@@ -156,8 +182,8 @@ func NewActionRemoveTrait(source Source, trait TraitType) *Action {
 	return &Action{ACTION_REMOVE_TRAIT, map[ArgumentName]Source{PARAMETER_SOURCE: source, PARAMETER_TRAIT: trait}}
 }
 
-func NewActionAddFilter(filter Filter) *Action {
-	return &Action{ACTION_ADD_FILTER, map[ArgumentName]Source{PARAMETER_FILTER : filter}}
+func NewActionAddFilters(filters ...Filter) *Action {
+	return &Action{ACTION_ADD_FILTERS, map[ArgumentName]Source{PARAMETER_FILTERS : filters}}
 }
 
 func NewActionAddPairProperty(creatures Source, property Source) *Action {
@@ -167,52 +193,37 @@ func NewActionAddPairProperty(creatures Source, property Source) *Action {
 
 
 func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action) *Action {
-	actionVariants := make([]map[ArgumentName]Source, 0, 1)
-	actionVariants = append(actionVariants, make(map[ArgumentName]Source))
+	instantiatedSources := make(map[ArgumentName]Source)
 	for key,argument := range a.Arguments {
-		switch t := argument.(type) {
-			case FilterSourcePrototype:
-				sources := InstantiateFilterSourcePrototype(game, reason, t)
-				if len(sources) == 1 {
-					for i := range actionVariants {
-						actionVariants[i][key] = sources[0]
+		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, argument)
+		instantiatedSources[key] = instantiatedSource
+		switch instantiatedSource.(type) {
+			case OneOf:
+				oneOf := instantiatedSource.(OneOf)
+				actions := make([]*Action, 0, len(oneOf.Sources))
+				for _, o := range oneOf.Sources {
+					action := &Action{a.Type, make(map[ArgumentName]Source)}
+					for k := range a.Arguments {
+						action.Arguments[k] = a.Arguments[k]
 					}
-				} else {
-					tmpActionVariants := make([]map[ArgumentName]Source, 0, len(sources) * len(actionVariants))
-					for _,variant := range actionVariants {
-						for _,source := range sources {
-							tmpVariant := make(map[ArgumentName]Source)
-							for argumentName := range variant {
-								tmpVariant[argumentName] = variant[argumentName]
-							}
-							tmpVariant[key] = source
-							tmpActionVariants = append(tmpActionVariants, tmpVariant)	
-						}
-					}					
-					actionVariants = tmpActionVariants
+					action.Arguments[key] = o
+					actions = append(actions, action.InstantiateFilterPrototypeAction(game, reason))
 				}
-			case Action:
-				for i := range actionVariants {
-					actionVariants[i][key] = t.InstantiateFilterPrototypeAction(game, reason)
+				return NewActionSelect(actions...)
+			case AllOf:
+				all := instantiatedSource.(AllOf)
+				actions := make([]*Action, 0, len(all.Sources))
+				for _, o := range all.Sources {
+					action := &Action{a.Type, make(map[ArgumentName]Source)}
+					for k := range a.Arguments {
+						action.Arguments[k] = a.Arguments[k]
+					}
+					action.Arguments[key] = o
+					actions = append(actions, action.InstantiateFilterPrototypeAction(game, reason))
 				}
-			case Filter:
-				for i := range actionVariants {
-					actionVariants[i][key] = t.InstantiateFilterPrototype(game, reason)
-				}
-			default:
-				for i := range actionVariants {
-					actionVariants[i][key] = argument
-				}
-		}
+				return NewActionSequence(actions...)
+		}		
 	}
-	if len(actionVariants) == 1 {
-		return &Action{a.Type, actionVariants[0]}
-	} else {
-		actions := make([]*Action, 0, len(actionVariants))
-		for _,variant := range actionVariants {
-			actions = append(actions, &Action{a.Type, variant})
-		}
-		return NewActionSequence(actions...)
-	}
+	return &Action{a.Type, instantiatedSources}
 }
 
