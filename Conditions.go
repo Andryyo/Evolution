@@ -126,8 +126,8 @@ func (c *ConditionEqual) CheckCondition(game *Game, action *Action) bool {
 						}
 					}
 				case Property:
-					firstSource := condition.sources[i-1].(Property)
-					secondSource := condition.sources[i].(Property)
+					firstSource := condition.sources[i-1].(*Property)
+					secondSource := condition.sources[i].(*Property)
 					if !firstSource.equals(secondSource) {
 						return false
 					}
@@ -298,8 +298,8 @@ func (c *ConditionContains) CheckCondition(game *Game, action *Action) bool {
 				}
 			}
 		case Property:
-			property := element.(Property)
-			properties := container.([]Property)
+			property := element.(*Property)
+			properties := container.([]*Property)
 			for _, p := range properties {
 				if p.equals(property) {
 					return true

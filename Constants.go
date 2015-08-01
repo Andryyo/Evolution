@@ -39,6 +39,7 @@ const (
 	FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS_PROPERTIES
 	FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES_PAIR
 	FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES
+	FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES
 )
 
 func (t FilterSourcePrototype) GoString() string {
@@ -87,6 +88,8 @@ func (t FilterSourcePrototype) GoString() string {
 			return "Creatures pair"
 		case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES:
 			return "Player creature"
+		case FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES:
+			return "One of creatures"
 		default:
 			return string(t)
 	}
@@ -110,6 +113,7 @@ const (
 	TRAIT_FAT
 	TRAIT_SIMBIOSYS
 	TRAIT_PIRACY
+	TRAIT_HIGH_BODY_WEIGHT
 )
 
 func (t TraitType) GoString() string {
@@ -144,6 +148,8 @@ func (t TraitType) GoString() string {
 			return "Piracy"
 		case TRAIT_USED:
 			return "Used"
+		case TRAIT_HIGH_BODY_WEIGHT:
+			return "High bopy weight"
 		default:
 			return string(t)
 	}
@@ -179,6 +185,7 @@ const (
 	ACTION_REMOVE_CARD
 	ACTION_REMOVE_PROPERTY
 	ACTION_GET_FOOD_FROM_BANK
+	ACTION_PIRACY
 )
 
 type ArgumentName int

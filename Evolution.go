@@ -29,7 +29,7 @@ type Source interface{}
 
 type Card struct {
 	ActiveProperty *Property
-	Properties     []Property
+	Properties     []*Property
 	Owner          *Player
 }
 
@@ -55,7 +55,7 @@ type Property struct {
 	Traits         []TraitType
 }
 
-func (p Property) equals(property Property) bool {
+func (p *Property) equals(property *Property) bool {
 	if len(p.Traits) != len(property.Traits) {
 		return false
 	}
@@ -75,11 +75,11 @@ func (p Property) equals(property Property) bool {
 	return true
 }
 
-func (c Property) AddTrait(trait TraitType) {
+func (c *Property) AddTrait(trait TraitType) {
 	c.Traits = append(c.Traits, trait)
 }
 
-func (c Property) RemoveTrait(trait TraitType) {
+func (c *Property) RemoveTrait(trait TraitType) {
 	for i, t := range c.Traits {
 		if t == trait {
 			c.Traits = append(c.Traits[:i], c.Traits[i+1:]...)
@@ -88,7 +88,7 @@ func (c Property) RemoveTrait(trait TraitType) {
 	}
 }
 
-func (c Property) GetTraits() []TraitType {
+func (c *Property) GetTraits() []TraitType {
 	return c.Traits
 }
 
@@ -208,11 +208,11 @@ func (g *Game) TakeCard(player *Player) {
 }
 
 func (g *Game) InitializeDeck() {
-	camouflage := Property{Traits : []TraitType {TRAIT_CAMOUFLAGE}}
-	burrowing := Property{Traits : []TraitType {TRAIT_BURROWING}}
-	sharpVision := Property{Traits : []TraitType {TRAIT_SHART_VISION}}
-	symbiosys := Property{Traits : []TraitType {TRAIT_PAIR, TRAIT_SIMBIOSYS}}
-	//piracy := Property{Traits : []TraitType {TRAIT_PIRACY}}
+	camouflage := &Property{Traits : []TraitType {TRAIT_CAMOUFLAGE}}
+	burrowing := &Property{Traits : []TraitType {TRAIT_BURROWING}}
+	sharpVision := &Property{Traits : []TraitType {TRAIT_SHART_VISION}}
+	symbiosys := &Property{Traits : []TraitType {TRAIT_PAIR, TRAIT_SIMBIOSYS}}
+	piracy := &Property{Traits : []TraitType {TRAIT_PIRACY}}
 	/*grazing := &Property{Name: "grazing"}
 	tailLoss := &Property{Name: "tailLoss"}
 	hibernation := &Property{Name: "hibernation"}
@@ -223,16 +223,16 @@ func (g *Game) InitializeDeck() {
 	mimicry := &Property{Name: "mimicry"}
 	swimming := &Property{Name: "swimming"}
 	parasite := &Property{Name: "parasite"}
-	carnivorous := &Property{Name: "carnivorous"}
-	fatTissue := &Property{Name: "fatTissue"}
-	cooperation := &Property{Name: "cooperation"}
-	highBodyWeight := &Property{Name: "highBodyWeight"}*/
+	carnivorous := &Property{Name: "carnivorous"}*/
+	fatTissue := &Property{Traits : []TraitType {TRAIT_FAT_TISSUE}}
+	//cooperation := &Property{Name: "cooperation"}
+	highBodyWeight := &Property{Traits : []TraitType {TRAIT_HIGH_BODY_WEIGHT, TRAIT_REQUIRE_FOOD}}
 	g.Deck = make([]*Card, 0, 84)
 	g.AddCard(4, camouflage)
 	g.AddCard(4, burrowing)
 	g.AddCard(4, sharpVision)
 	g.AddCard(4, symbiosys)
-	//g.AddCard(4, piracy)
+	g.AddCard(4, piracy)
 	/*g.AddCard(4, grazing)
 	g.AddCard(4, tailLoss)
 	g.AddCard(4, hibernation)
@@ -246,8 +246,8 @@ func (g *Game) InitializeDeck() {
 	g.AddCard(4, parasite, fatTissue)
 	g.AddCard(4, cooperation, carnivorous)
 	g.AddCard(4, cooperation, fatTissue)
-	g.AddCard(4, highBodyWeight, carnivorous)
-	g.AddCard(4, highBodyWeight, fatTissue)*/
+	g.AddCard(4, highBodyWeight, carnivorous)*/
+	g.AddCard(4, highBodyWeight, fatTissue)
 	g.ShuffleDeck()
 }
 
@@ -257,7 +257,7 @@ func (g *Game) InitializePlayers(names ...string) {
 	for _, name := range names {
 		player := &Player{Name: name, ChoiceMaker: ConsoleChoiceMaker{}}
 		g.Players.Value = player
-		g.TakeCards(player, 6)
+		g.TakeCards(player, 12)
 		g.Players = g.Players.Next()
 	}
 	g.CurrentPlayer = g.Players.Value.(*Player)
@@ -433,6 +433,24 @@ func (g *Game) InitializeFilters() {
 			nil,
 			NewActionAddTrait(FILTER_SOURCE_PARAMETER_SOURCE, TRAIT_FED)})
 
+	//Deny remove food from creature, if it have none
+	g.Filters = append(g.Filters,
+		&FilterDeny{
+			NewANDCondition(
+				&ConditionPhase{PHASE_FEEDING},
+				&ConditionActionType{ACTION_REMOVE_TRAIT},
+				NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, TRAIT_FOOD),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE , TRAIT_FOOD}, 0)),
+			nil})
+	
+	g.Filters = append(g.Filters,
+		&FilterDeny{
+			NewANDCondition(
+				&ConditionPhase{PHASE_FEEDING},
+				&ConditionActionType{ACTION_REMOVE_TRAIT},
+				NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, TRAIT_ADDITIONAL_FOOD),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE , TRAIT_ADDITIONAL_FOOD}, 0)),
+			nil})	
 		
 	//camouflage
 	g.Filters = append(g.Filters,
@@ -483,41 +501,71 @@ func (g *Game) InitializeFilters() {
 					NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
+	
 	//piracy
-	/*g.Filters = append(g.Filters,
+	g.Filters = append(g.Filters,
 		&FilterAction {
 			FILTER_ACTION_EXECUTE_AFTER,
 			NewANDCondition(
-				&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
+				&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
 				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PIRACY}, 1)),
 			nil,
 			NewActionAddFilters(
 				NewFilterAllow(
 					NewANDCondition(
 						&ConditionPhase{PHASE_FEEDING},
-						&ConditionEqual{InstantiationOff{FILTER_SOURCE_PARAMETER_CURRENT_PLAYER}, FILTER_SOURCE_PARAMETER_CURRENT_PLAYER}),
-					nil,
-					
-				)
-			)})*/
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_CURRENT_PLAYER}, FILTER_SOURCE_PARAMETER_CURRENT_PLAYER)),
+					NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+					NewActionPiracy(FILTER_SOURCE_PARAMETER_CREATURE, InstantiationOff{FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES}, FILTER_SOURCE_PARAMETER_ANY_FOOD)),
+				&FilterAction{
+					FILTER_ACTION_EXECUTE_AFTER,
+					&ConditionActionType{ACTION_PIRACY},
+					NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+					NewActionAddTrait(FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED)},
+				&FilterDeny{
+					NewANDCondition(
+						&ConditionActionType{ACTION_PIRACY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE}, FILTER_SOURCE_PARAMETER_SOURCE_CREATURE),
+						NewConditionEqual(InstantiationOff{TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED}}, 1)),
+					NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
+	g.Filters = append(g.Filters,
+		&FilterDeny{
+			NewANDCondition(
+				&ConditionActionType{ACTION_PIRACY},
+				NewORCondition(
+					NewConditionEqual(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, FILTER_SOURCE_PARAMETER_TARGET_CREATURE),
+					NewANDCondition(
+						NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, TRAIT_FOOD),
+						&ConditionActionDenied{NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_FOOD)}),
+					NewANDCondition(
+						NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, TRAIT_ADDITIONAL_FOOD),
+						&ConditionActionDenied{NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_ADDITIONAL_FOOD)}),
+					&ConditionActionDenied{NewActionAddTrait(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_ADDITIONAL_FOOD)})),	
+			nil})
 }
 
-func (g *Game) AddCard(count int, properties ...Property) {
+func (g *Game) AddCard(count int, properties ...*Property) {
 	for i := 0; i < count; i++ {
 		card := g.NewCard(properties...)
 		g.Deck = append(g.Deck, card)
 	}
 }
 
-func (g *Game) NewCard(properties ...Property) *Card {
+func (g *Game) NewCard(properties ...*Property) *Card {
 	if len(properties) == 0 {
 		return &Card{}
 	}
 	card := new(Card)
 	for _,property := range properties {
-		card.Properties = append(card.Properties, Property {Traits : property.Traits})
+		card.Properties = append(card.Properties, &Property {Traits : property.Traits})
 	}
-	card.ActiveProperty = &card.Properties[0]
+	card.ActiveProperty = card.Properties[0]
 	for i := range card.Properties {
 		card.Properties[i].ContainingCard = card
 	}
@@ -535,8 +583,8 @@ func (g *Game) ShuffleDeck() {
 func (g *Game) ActionDenied(action *Action) (result bool) {
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_DENY {
-			//fmt.Printf("%#v denied cause %#v:%#v\n", action, filter.GetCondition(), filter.CheckCondition(g, action))
 			if filter.CheckCondition(g, action) {
+				fmt.Printf("%#v denied because %#v\n", action, filter.GetCondition())
 				return true
 			}
 		}
@@ -548,14 +596,28 @@ func (g *Game) GetAlowedActions() []*Action {
 	var result []*Action
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_ALLOW && filter.CheckCondition(g, nil) {
-			actions := filter.InstantiateFilterPrototype(g, nil, true).(*FilterAllow).GetActions()
+			actions := filter.(*FilterAllow).GetActions(g)
 			for _, action := range actions {
 				if action.Type == ACTION_SELECT {
-					result = append(result, action.Arguments[PARAMETER_ACTIONS].([]*Action)...)
+					result = append(result, g.ExpandActionSelect(action)...)
+					fmt.Printf("%#v\n",result)
 				} else {
 					result = append(result, action)
+					fmt.Printf("%#v\n",result)
 				}
 			}
+		}
+	}
+	return result
+}
+
+func (g *Game) ExpandActionSelect(action *Action) []*Action {
+	result := make([]*Action, 0, 4)
+	for _,a := range action.Arguments[PARAMETER_ACTIONS].([]*Action) {
+		if a.Type == ACTION_SELECT {
+			result = append(result, g.ExpandActionSelect(a)...)
+		} else {
+			result = append(result, a)
 		}
 	}
 	return result
@@ -596,7 +658,7 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 			continue
 		}
 		fmt.Printf("Executing action: %#v\n", action)
-		action.Execute(g, stack)
+		action.Execute(g)
 		for _, filter := range g.Filters {
 			if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
 				stack.PushBack(filter.InstantiateFilterPrototype(g, action, true).(*FilterAction).GetAction())

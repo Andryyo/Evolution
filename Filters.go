@@ -95,8 +95,15 @@ func (f *FilterAllow) GetCondition() Condition {
 	return f.condition
 }
 
-func (f *FilterAllow) GetActions() []*Action {
-	return f.actions
+func (f *FilterAllow) GetActions(game *Game) []*Action {
+	var instantiatedActions []*Action
+	for _,action := range f.actions {
+		source := action.InstantiateFilterPrototypeAction(game, nil, true)
+		if source != nil {
+			instantiatedActions = append(instantiatedActions, source)
+		}
+	}
+	return instantiatedActions
 }
 
 func (f *FilterAllow) CheckCondition(game *Game, action *Action) bool {
@@ -181,6 +188,15 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 				filters = append(filters, element.InstantiateFilterPrototype(game, reason, instantiate))
 			}
 			return filters
+		case []*Action:
+			actions := make([]*Action, 0, len(t))
+			for _,element := range t {
+				instantiatedAction := element.InstantiateFilterPrototypeAction(game, reason, instantiate)
+				if instantiatedAction != nil {
+					actions = append(actions, instantiatedAction)
+				}
+			}
+			return actions
 		case InstantiationOff:
 			if instantiate {
 				return InstantiateFilterSourcePrototype(game, reason, t.source, false)
@@ -288,9 +304,9 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 					return reason.Arguments[PARAMETER_SOURCE]
 				case FILTER_SOURCE_PARAMETER_CREATURE_PROPERTIES:
 					creature := reason.Arguments[PARAMETER_CREATURE].(*Creature)
-					properties := make([]Property, 0, len(creature.Tail))
+					properties := make([]*Property, 0, len(creature.Tail))
 					for _,card := range creature.Tail {
-						properties = append(properties, *card.ActiveProperty)
+						properties = append(properties, card.ActiveProperty)
 					}
 					return properties
 				case FILTER_SOURCE_PARAMETER_FOOD_BANK_COUNT:
@@ -320,6 +336,15 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 							}
 						}
 					}
+					return OneOf{result}
+				case FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES:
+					result := make([]Source, 0, 10)
+					game.Players.Do(
+						func (val interface{}) {
+							for _, creature := range val.(*Player).Creatures {
+								result = append(result, creature)
+							}
+					})
 					return OneOf{result}
 				case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES:
 					result := make([]Source, 0, len(game.CurrentPlayer.Cards)*2)

@@ -4,7 +4,6 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"container/list"
 )
 
 type Action struct {
@@ -22,14 +21,14 @@ func (a *Action) GoString() string {
 		result += fmt.Sprintf("Player %s starts turn", a.Arguments[PARAMETER_PLAYER].(*Player).Name)
 	case ACTION_ADD_SINGLE_PROPERTY:
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
-		property := a.Arguments[PARAMETER_PROPERTY].(Property)
+		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
 		card := property.ContainingCard
-		result += fmt.Sprintf("Add property %#v on card %#v to creature %#v", &property, card, creature)
+		result += fmt.Sprintf("Add property %#v on card %#v to creature %#v", property, card, creature)
 	case ACTION_ADD_PAIR_PROPERTY:
 		creatures := a.Arguments[PARAMETER_PAIR].([]*Creature)
-		property := a.Arguments[PARAMETER_PROPERTY].(Property)
+		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
 		card := property.ContainingCard
-		result += fmt.Sprintf("Add property %#v on card %#v to creatures %#v and %#v", &property, card, creatures[0], creatures[1])
+		result += fmt.Sprintf("Add property %#v on card %#v to creatures %#v and %#v", property, card, creatures[0], creatures[1])
 	case ACTION_NEXT_PLAYER:
 		result += "Next player"
 	case ACTION_PASS:
@@ -51,13 +50,15 @@ func (a *Action) GoString() string {
 		result += fmt.Sprintf("Add filter %#v",a.Arguments[PARAMETER_FILTERS])
 	case ACTION_GET_FOOD_FROM_BANK:
 		result += fmt.Sprintf("Give food from bank to creature %#v",a.Arguments[PARAMETER_CREATURE])
+	case ACTION_PIRACY:
+		result += fmt.Sprintf("Steal %#v for %#v from %#v", a.Arguments[PARAMETER_TRAIT], a.Arguments[PARAMETER_SOURCE_CREATURE], a.Arguments[PARAMETER_TARGET_CREATURE])
 	default:
 		result += fmt.Sprintf("%+v", a)
 	}
 	return result
 }
 
-func (a *Action) Execute(game *Game, stack *list.List) {
+func (a *Action) Execute(game *Game) {
 	switch a.Type {
 	case ACTION_SEQUENCE:
 		for _, action := range a.Arguments[PARAMETER_ACTIONS].([]*Action) {
@@ -69,7 +70,9 @@ func (a *Action) Execute(game *Game, stack *list.List) {
 		player := a.Arguments[PARAMETER_PLAYER].(*Player)
 		actions := game.GetAlowedActions()
 		action := player.MakeChoice(game, actions)
-		game.ExecuteAction(action)
+		if action != nil {
+			game.ExecuteAction(action)
+		}
 	case ACTION_PASS:
 		game.ExecuteAction(NewActionAddTrait(game.CurrentPlayer, TRAIT_PASS))
 	case ACTION_NEXT_PLAYER:
@@ -84,14 +87,14 @@ func (a *Action) Execute(game *Game, stack *list.List) {
 		player.RemoveCard(card)
 	case ACTION_ADD_SINGLE_PROPERTY:
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
-		property := a.Arguments[PARAMETER_PROPERTY].(Property)
+		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
 		card := property.ContainingCard
-		card.ActiveProperty = &property
+		card.ActiveProperty = property
 		creature.Tail = append(creature.Tail, card)
 		creature.Owner.RemoveCard(card)
 	case ACTION_ADD_PAIR_PROPERTY:
 		creatures := a.Arguments[PARAMETER_PAIR].([]*Creature)
-		property := a.Arguments[PARAMETER_PROPERTY].(Property)
+		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
 		card := property.ContainingCard
 		for _,creature := range creatures {
 			creature.Tail = append(creature.Tail, card)
@@ -126,6 +129,12 @@ func (a *Action) Execute(game *Game, stack *list.List) {
 		}
 		game.Food--
 		game.ExecuteAction(NewActionAddTrait(creature, TRAIT_FOOD))
+	case ACTION_PIRACY:
+		sourceCreature := a.Arguments[PARAMETER_SOURCE_CREATURE].(*Creature)
+		targetCreature := a.Arguments[PARAMETER_TARGET_CREATURE].(*Creature)
+		trait := a.Arguments[PARAMETER_TRAIT].(TraitType)
+		game.ExecuteAction(NewActionRemoveTrait(targetCreature, trait))
+		game.ExecuteAction(NewActionAddTrait(sourceCreature, TRAIT_ADDITIONAL_FOOD))
 	}
 }
 
@@ -171,7 +180,7 @@ func NewActionAddTrait(source Source, trait Source) *Action {
 	return &Action{ACTION_ADD_TRAIT, map[ArgumentName]Source{PARAMETER_SOURCE: source, PARAMETER_TRAIT: trait}}
 }
 
-func NewActionRemoveTrait(source Source, trait TraitType) *Action {
+func NewActionRemoveTrait(source Source, trait Source) *Action {
 	return &Action{ACTION_REMOVE_TRAIT, map[ArgumentName]Source{PARAMETER_SOURCE: source, PARAMETER_TRAIT: trait}}
 }
 
@@ -183,7 +192,9 @@ func NewActionAddPairProperty(creatures Source, property Source) *Action {
 	return &Action{ACTION_ADD_PAIR_PROPERTY, map[ArgumentName]Source{PARAMETER_PAIR: creatures, PARAMETER_PROPERTY: property}}
 }
 
-
+func NewActionPiracy(sourceCreature Source, targetCreature Source, trait Source) *Action {
+	return &Action{ACTION_PIRACY, map[ArgumentName]Source{PARAMETER_SOURCE_CREATURE: sourceCreature, PARAMETER_TARGET_CREATURE: targetCreature, PARAMETER_TRAIT: trait}}
+}
 
 func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action, instantiate bool) *Action {
 	instantiatedSources := make(map[ArgumentName]Source)
@@ -213,7 +224,11 @@ func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action, in
 						actions = append(actions, instantiatedAction)
 					}
 				}
-				return NewActionSelect(actions...)
+				if len(actions) == 0 {
+					return nil
+				} else {
+					return NewActionSelect(actions...)
+				}
 			case AllOf:
 				all := instantiatedSource.(AllOf)
 				actions := make([]*Action, 0, len(all.Sources))
