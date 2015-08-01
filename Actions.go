@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"container/list"
 )
 
 type Action struct {
@@ -56,7 +57,7 @@ func (a *Action) GoString() string {
 	return result
 }
 
-func (a *Action) Execute(game *Game) {
+func (a *Action) Execute(game *Game, stack *list.List) {
 	switch a.Type {
 	case ACTION_SEQUENCE:
 		for _, action := range a.Arguments[PARAMETER_ACTIONS].([]*Action) {
@@ -92,12 +93,10 @@ func (a *Action) Execute(game *Game) {
 		creatures := a.Arguments[PARAMETER_PAIR].([]*Creature)
 		property := a.Arguments[PARAMETER_PROPERTY].(Property)
 		card := property.ContainingCard
-		players := make([]*Player, 0, 2)
 		for _,creature := range creatures {
-			players = append(players, creature.Owner)
 			creature.Tail = append(creature.Tail, card)
 		}
-		card.Owners[0].RemoveCard(card)
+		card.Owner.RemoveCard(card)
 	case ACTION_ADD_TRAIT:
 		trait := a.Arguments[PARAMETER_TRAIT].(TraitType)
 		source := a.Arguments[PARAMETER_SOURCE].(WithTraits)
@@ -186,11 +185,14 @@ func NewActionAddPairProperty(creatures Source, property Source) *Action {
 
 
 
-func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action) *Action {
+func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action, instantiate bool) *Action {
 	instantiatedSources := make(map[ArgumentName]Source)
 	for key,argument := range a.Arguments {
-		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, argument)
+		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, argument, instantiate)
 		instantiatedSources[key] = instantiatedSource
+		if !instantiate {
+			continue
+		}
 		switch instantiatedSource.(type) {
 			case OneOf:
 				oneOf := instantiatedSource.(OneOf)
@@ -201,7 +203,15 @@ func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action) *A
 						action.Arguments[k] = a.Arguments[k]
 					}
 					action.Arguments[key] = o
-					actions = append(actions, action.InstantiateFilterPrototypeAction(game, reason))
+					instantiatedAction := action.InstantiateFilterPrototypeAction(game, reason, instantiate)
+					if instantiatedAction == nil {
+						continue
+					}
+					if instantiatedAction.Type == ACTION_SELECT {
+						actions = append(actions, instantiatedAction.Arguments[PARAMETER_ACTIONS].([]*Action)...)
+					} else {
+						actions = append(actions, instantiatedAction)
+					}
 				}
 				return NewActionSelect(actions...)
 			case AllOf:
@@ -213,11 +223,15 @@ func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action) *A
 						action.Arguments[k] = a.Arguments[k]
 					}
 					action.Arguments[key] = o
-					actions = append(actions, action.InstantiateFilterPrototypeAction(game, reason))
+					actions = append(actions, action.InstantiateFilterPrototypeAction(game, reason, instantiate))
 				}
 				return NewActionSequence(actions...)
 		}		
 	}
-	return &Action{a.Type, instantiatedSources}
+	if !game.ActionDenied(&Action{a.Type, instantiatedSources}) {
+		return &Action{a.Type, instantiatedSources}
+	} else {
+		return nil
+	}
 }
 
