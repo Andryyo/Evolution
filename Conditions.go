@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"reflect"
+	"runtime/debug"
 )
 
 type Condition interface {
@@ -125,7 +126,7 @@ func (c *ConditionEqual) CheckCondition(game *Game, action *Action) bool {
 							return false
 						}
 					}
-				case Property:
+				case *Property:
 					firstSource := condition.sources[i-1].(*Property)
 					secondSource := condition.sources[i].(*Property)
 					if !firstSource.equals(secondSource) {
@@ -151,6 +152,7 @@ func (c *ConditionEqual) InstantiateFilterPrototypeCondition(game *Game, reason 
 	}
 	defer func() {
 		if r := recover(); r!=nil {
+			fmt.Printf("%s\n", debug.Stack())
 			condition = &ConditionFalse{}
 		}
 	} ()
@@ -266,7 +268,8 @@ type ConditionActionDenied struct {
 }
 
 func (c *ConditionActionDenied) CheckCondition(game *Game, action *Action) bool {
-	return c.action.InstantiateFilterPrototypeAction(game, action, true) == nil
+	instantiatedActions := c.action.InstantiateFilterPrototypeAction(game, action, true)
+	return game.ActionDenied(instantiatedActions)
 }
 
 func (c *ConditionActionDenied) GoString() string {
@@ -297,7 +300,7 @@ func (c *ConditionContains) CheckCondition(game *Game, action *Action) bool {
 					return true
 				}
 			}
-		case Property:
+		case *Property:
 			property := element.(*Property)
 			properties := container.([]*Property)
 			for _, p := range properties {

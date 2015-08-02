@@ -114,6 +114,10 @@ const (
 	TRAIT_SIMBIOSYS
 	TRAIT_PIRACY
 	TRAIT_HIGH_BODY_WEIGHT
+	TRAIT_GRAZING
+	TRAIT_TAIL_LOSS
+	TRAIT_PARASITE
+	TRAIT_CARNIVOROUS
 )
 
 func (t TraitType) GoString() string {
@@ -150,6 +154,14 @@ func (t TraitType) GoString() string {
 			return "Used"
 		case TRAIT_HIGH_BODY_WEIGHT:
 			return "High bopy weight"
+		case TRAIT_GRAZING:
+			return "Grazing"
+		case TRAIT_TAIL_LOSS:
+			return "Tail"
+		case TRAIT_PARASITE:
+			return "Parasite"
+		case TRAIT_CARNIVOROUS:
+			return "Carnivorous"
 		default:
 			return string(t)
 	}
@@ -186,6 +198,8 @@ const (
 	ACTION_REMOVE_PROPERTY
 	ACTION_GET_FOOD_FROM_BANK
 	ACTION_PIRACY
+	ACTION_DESTROY_BANK_FOOD
+	ACTION_SELECT_FROM_AVAILABLE_ACTIONS
 )
 
 type ArgumentName int
@@ -202,6 +216,19 @@ const (
 	PARAMETER_SOURCE
 	PARAMETER_FILTERS
 	PARAMETER_SOURCE_CREATURE
-	PARAMETER_TARGET_CREATURE
-	
+	PARAMETER_TARGET_CREATURE	
+)
+
+type AccessorMode int
+
+const (
+	ACCESSOR_MODE_ONE_OF_CREATURE_PROPERTIES AccessorMode = iota
+	ACCESSOR_MODE_CREATURE_OWNER
+)
+
+type Type int
+
+const (
+	TYPE_CREATURE Type = iota
+	TYPE_PROPERTY
 )

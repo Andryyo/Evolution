@@ -29,6 +29,11 @@ type TraitsCount struct {
 	traits Source
 }
 
+type Accessor struct {
+	source Source
+	mode AccessorMode
+}
+
 func (t *TraitsCount) GoString() string {
 	return fmt.Sprintf("%#v count of %#v", t.traits, t.source)
 }
@@ -44,6 +49,10 @@ type OneOf struct {
 
 type AllOf struct {
 	Sources []Source
+}
+
+type TypeOf struct {
+	source Source
 }
 
 func (f *FilterDeny) GetType() FilterType {
@@ -132,6 +141,9 @@ func (f *FilterAllow) InstantiateFilterPrototype(game *Game, reason *Action, ins
 }
 
 func NewFilterAllow(condition Condition, removeCondition Condition, actions ...*Action) Filter {
+	if actions[0] == nil {
+		fmt.Println("WTF?!\n")
+	}
 	return &FilterAllow{condition, removeCondition, actions}
 }
 
@@ -201,13 +213,73 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 			if instantiate {
 				return InstantiateFilterSourcePrototype(game, reason, t.source, false)
 			} else {
-				return &InstantiationOff{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+				return InstantiationOff{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
 			}
 		case InstantiationOn:
 			if !instantiate {
 				return InstantiateFilterSourcePrototype(game, reason, t.source, true)
 			} else {
-				return &InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+				return InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+			}
+		case TypeOf:
+			if !instantiate {
+				return TypeOf{t.source}
+			}
+			instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
+			if all,ok := instantiatedSource.(AllOf) ; ok {
+				results := make([]Source, 0, len(all.Sources))
+				for _,source := range all.Sources {
+					results = append(results, InstantiateFilterSourcePrototype(game, reason, TypeOf{source}, instantiate))
+				}
+				return AllOf{results}
+			}
+			if oneOf,ok := instantiatedSource.(OneOf) ; ok {
+				results := make([]Source, 0, len(oneOf.Sources))
+				for _,source := range oneOf.Sources {
+					results = append(results, InstantiateFilterSourcePrototype(game, reason, TypeOf{source}, instantiate))
+				}
+				return OneOf{results}
+			}
+			switch instantiatedSource.(type) {
+				case *Creature:
+					return TYPE_CREATURE
+				case *Property:
+					return TYPE_PROPERTY
+				default:
+					return nil
+			}
+		case Accessor:
+			if !instantiate {
+				return Accessor{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate), t.mode}
+			}
+			instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
+			if all,ok := instantiatedSource.(AllOf) ; ok {
+				results := make([]Source, 0, len(all.Sources))
+				for _,source := range all.Sources {
+					results = append(results, InstantiateFilterSourcePrototype(game, reason, Accessor{source, t.mode}, instantiate))
+				}
+				return AllOf{results}
+			}
+			if oneOf,ok := instantiatedSource.(OneOf) ; ok {
+				results := make([]Source, 0, len(oneOf.Sources))
+				for _,source := range oneOf.Sources {
+					results = append(results, InstantiateFilterSourcePrototype(game, reason, Accessor{source, t.mode}, instantiate))
+				}
+				return OneOf{results}
+			}
+			switch t.mode {
+				case ACCESSOR_MODE_ONE_OF_CREATURE_PROPERTIES:
+					creature := instantiatedSource.(*Creature)
+					result := make([]Source, 0, len(creature.Tail))
+					for _, card := range creature.Tail {
+						result = append(result, card.ActiveProperty)
+					}
+					return OneOf{result}
+				case ACCESSOR_MODE_CREATURE_OWNER:
+					creature := instantiatedSource.(*Creature)
+					return creature.Owner
+				default:
+					return nil
 			}
 		case TraitsCount:
 			instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
