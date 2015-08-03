@@ -804,20 +804,28 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 			action = g.CurrentPlayer.ChoiceMaker.MakeChoice(g, action.Arguments[PARAMETER_ACTIONS].([]*Action))
 		}
 		replaced := false
-		for i, filter := range g.Filters {
+		for _, filter := range g.Filters {
 			if filter.GetType() == FILTER_ACTION_REPLACE && filter.CheckCondition(g, action) {
 				stack.PushFront(filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(g, action, true))
 				fmt.Printf("Replaced %#v with %#v because %#v\n", action, filter.(*FilterAction).GetAction().InstantiateFilterPrototypeAction(g, action, true), filter.GetCondition())
 				replaced = true
 				break
 			}
-			if filter.CheckRemoveCondition(g, action) {
-				fmt.Printf("Removing filter %#v because &#v", filter, filter.GetCondition())
-				g.Filters = append(g.Filters[:i], g.Filters[i+1:]...)
-			}
 			if filter.GetType() == FILTER_ACTION_EXECUTE_BEFORE && filter.CheckCondition(g, action) {
 				g.ExecuteAction(filter.InstantiateFilterPrototype(g, action, true).(*FilterAction).GetAction())
 			} 
+		}
+		removed := true
+		for removed {
+			removed = false
+			for i, filter := range g.Filters {
+				if filter.CheckRemoveCondition(g, action) {
+					fmt.Printf("Removing filter %#v because %#v\n", filter, filter.GetCondition())
+					g.Filters = append(g.Filters[:i], g.Filters[i+1:]...)
+					removed = true
+					break
+				}
+			}
 		}
 		if replaced {
 			continue

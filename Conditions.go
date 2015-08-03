@@ -126,12 +126,12 @@ func (c *ConditionEqual) CheckCondition(game *Game, action *Action) bool {
 							return false
 						}
 					}
-				case *Property:
+				/*case *Property:
 					firstSource := condition.sources[i-1].(*Property)
 					secondSource := condition.sources[i].(*Property)
 					if !firstSource.equals(secondSource) {
 						return false
-					}
+					}*/
 				default:
 					if condition.sources[i-1] != condition.sources[i] {
 						return false
