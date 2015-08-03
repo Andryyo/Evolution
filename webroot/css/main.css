@@ -1,0 +1,12 @@
+html, body, .container {
+  height: 100%;
+}
+
+.container-fluid {
+ height: 100%;
+}
+
+textarea.form-control {
+  height: calc(100% - 60px);
+  resize: none;
+}

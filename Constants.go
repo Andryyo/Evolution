@@ -118,6 +118,8 @@ const (
 	TRAIT_TAIL_LOSS
 	TRAIT_PARASITE
 	TRAIT_CARNIVOROUS
+	TRAIT_ATTACKED
+	TRAIT_GOT_FOOD
 )
 
 func (t TraitType) GoString() string {
@@ -162,6 +164,10 @@ func (t TraitType) GoString() string {
 			return "Parasite"
 		case TRAIT_CARNIVOROUS:
 			return "Carnivorous"
+		case TRAIT_GOT_FOOD:
+			return "Got food"
+		case TRAIT_ATTACKED:
+			return "Already attacked"
 		default:
 			return string(t)
 	}
@@ -200,6 +206,8 @@ const (
 	ACTION_PIRACY
 	ACTION_DESTROY_BANK_FOOD
 	ACTION_SELECT_FROM_AVAILABLE_ACTIONS
+	ACTION_EXTINCT
+	ACTION_TAKE_CARDS
 )
 
 type ArgumentName int
@@ -224,6 +232,7 @@ type AccessorMode int
 const (
 	ACCESSOR_MODE_ONE_OF_CREATURE_PROPERTIES AccessorMode = iota
 	ACCESSOR_MODE_CREATURE_OWNER
+	ACCESSOR_MODE_PROPERTY_OWNER
 )
 
 type Type int

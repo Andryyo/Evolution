@@ -11,4 +11,5 @@ func main() {
 	go server.Listen()
 	http.Handle("/", http.FileServer(http.Dir("webroot")))
 	log.Fatal(http.ListenAndServe(":80", nil))
+	//NewGame(&ConsoleChoiceMaker{"One"}, &ConsoleChoiceMaker{"Two"})
 }

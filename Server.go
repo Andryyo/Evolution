@@ -49,6 +49,7 @@ func (s *Server) Add(c *Client) {
 }
 
 func (s *Server) Del(c *Client) {
+	log.Printf("Client %s disconnected", c.name)
 	s.delCh <- c
 }
 

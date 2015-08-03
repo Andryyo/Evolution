@@ -157,6 +157,9 @@ func (c *ConditionEqual) InstantiateFilterPrototypeCondition(game *Game, reason 
 		}
 	} ()
 	instantiatedSources := make([]Source, 0, len(c.sources))
+	if c.sources[1] == TRAIT_ATTACKED {
+		fmt.Printf("BANG!")
+	}
 	for i,source := range c.sources {
 		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, source, instantiate)
 		instantiatedSources = append(instantiatedSources, instantiatedSource)

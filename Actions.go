@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 )
 
 type Action struct {
@@ -75,6 +76,15 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_START_TURN:
 		break
 	case ACTION_SELECT_FROM_AVAILABLE_ACTIONS:
+		game.NotifyAll("Food in bank: " + strconv.Itoa(game.Food))
+		game.NotifyAll("Creatures:")
+		game.Players.Do(func (val interface{}) {
+			player := val.(*Player)
+			game.NotifyAll(fmt.Sprintf("%#v(%#v):",player.Name, player.Traits))
+			for i, creature := range player.Creatures {
+				game.NotifyAll(fmt.Sprintf("%v) %#v", i, creature))
+			}
+		})
 		player := game.CurrentPlayer
 		actions := game.GetAlowedActions()
 		action := player.MakeChoice(actions)
@@ -176,6 +186,35 @@ func (a *Action) Execute(game *Game) {
 				game.ExecuteAction(NewActionRemoveCard(target.ContainingCard))
 				game.ExecuteAction(NewActionAddTrait(sourceCreature, TRAIT_ADDITIONAL_FOOD))
 		}
+	case ACTION_EXTINCT:
+		game.Players.Do(func (val interface{}) {
+			player := val.(*Player)
+			removed := true
+			for removed {
+				removed = false
+				for _,creature := range player.Creatures {
+					if !creature.ContainsTrait(TRAIT_FED) {
+						removed = true
+						game.ExecuteAction(NewActionRemoveCreature(creature))
+						break
+					}
+				}
+			}
+			for _,creature := range player.Creatures {
+				creature.RemoveTrait(TRAIT_FED)
+				for creature.ContainsTrait(TRAIT_FOOD) {
+					creature.RemoveTrait(TRAIT_FOOD)
+				}
+				for creature.ContainsTrait(TRAIT_ADDITIONAL_FOOD) {
+					creature.RemoveTrait(TRAIT_ADDITIONAL_FOOD)
+				}
+			}
+			if len(player.Cards) == 0 && len(player.Creatures) == 0 {
+				game.TakeCards(player, 6)
+				return
+			}
+			game.TakeCards(player, len(player.Creatures) + 1)
+		})
 	}
 }
 

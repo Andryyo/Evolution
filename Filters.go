@@ -275,6 +275,9 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 				case ACCESSOR_MODE_CREATURE_OWNER:
 					creature := instantiatedSource.(*Creature)
 					return creature.Owner
+				case ACCESSOR_MODE_PROPERTY_OWNER:
+					property := instantiatedSource.(*Property)
+					return property.ContainingCard.Owners[0]
 				default:
 					return nil
 			}

@@ -17,7 +17,7 @@ type ConsoleChoiceMaker struct {
 }
 
 func (c *ConsoleChoiceMaker) Notify(s string) {
-	fmt.Printf(s)
+	fmt.Println(s)
 }
 
 func (c *ConsoleChoiceMaker) GetChoice() int {

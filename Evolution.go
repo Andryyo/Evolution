@@ -29,6 +29,7 @@ type WithTraits interface {
 	GetTraits() []TraitType
 	AddTrait(trait TraitType)
 	RemoveTrait(trait TraitType)
+	ContainsTrait(trait TraitType) bool
 }
 
 type Source interface{}
@@ -98,6 +99,15 @@ func (c *Property) GetTraits() []TraitType {
 	return c.Traits
 }
 
+func (c *Property) ContainsTrait(trait TraitType) bool {
+	for _,t := range c.Traits {
+		if trait == t {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Property) GoString() string {
 	len := len(c.Traits)
 	if len == 0 {
@@ -165,6 +175,15 @@ func (c *Creature) RemoveCard(card *Card) {
 	}
 }
 
+func (c *Creature) ContainsTrait(trait TraitType) bool {
+	for _,t := range c.Traits {
+		if trait == t {
+			return true
+		}
+	}
+	return false
+}
+
 type Player struct {
 	ChoiceMaker
 	Name      string
@@ -197,6 +216,15 @@ func (p *Player) RemoveTrait(trait TraitType) {
 			return	
 		}
 	}
+}
+
+func (c *Player) ContainsTrait(trait TraitType) bool {
+	for _,t := range c.Traits {
+		if trait == t {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Player) RemoveCreature(creature *Creature) {
@@ -281,7 +309,7 @@ func (g *Game) InitializePlayers(players ...ChoiceMaker) {
 	for _, player := range players {
 		player := &Player{Name: player.GetName(), ChoiceMaker: player}
 		g.Players.Value = player
-		g.TakeCards(player, 12)
+		g.TakeCards(player, 6)
 		g.Players = g.Players.Next()
 	}
 	g.CurrentPlayer = g.Players.Value.(*Player)
@@ -384,7 +412,44 @@ func (g *Game) InitializeFilters() {
 			nil,
 			NewActionNewPhase(PHASE_FOOD_BANK_DETERMINATION)})
 	
+	//If all players pass in feeding phase, start extinction
+	g.Filters = append(g.Filters, 
+		&FilterAction{
+			FILTER_ACTION_REPLACE, 
+			NewANDCondition(
+				&ConditionPhase{PHASE_FEEDING},
+				&ConditionActionType{ACTION_NEXT_PLAYER},
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_ALL_PLAYERS, TRAIT_PASS}, 1)), 
+			nil,
+			NewActionNewPhase(PHASE_EXTINCTION)})
 	
+	g.Filters = append(g.Filters,
+		&FilterAction{
+			FILTER_ACTION_EXECUTE_AFTER,
+			NewANDCondition(
+				&ConditionActionType{ACTION_NEW_PHASE},
+				NewConditionEqual(FILTER_SOURCE_PARAMETER_PHASE, PHASE_EXTINCTION)),
+			nil,
+			&Action{ACTION_EXTINCT, map[ArgumentName]Source{}}})
+
+	g.Filters = append(g.Filters,
+		&FilterAction{
+			FILTER_ACTION_EXECUTE_AFTER,
+			&ConditionActionType{ACTION_EXTINCT},
+			nil,
+			NewActionNewPhase(PHASE_DEVELOPMENT)})
+
+	
+	//If player pass - replace his turn with NextTurn
+	g.Filters = append(g.Filters, 
+		&FilterAction{
+			FILTER_ACTION_REPLACE, 
+			NewANDCondition(
+				&ConditionActionType{ACTION_SELECT_FROM_AVAILABLE_ACTIONS}, 
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_CURRENT_PLAYER, TRAIT_PASS}, 1)), 
+			nil,
+			NewActionNextPlayer(g)})
+			
 	//If player pass - replace his turn with NextTurn
 	g.Filters = append(g.Filters, 
 		&FilterAction{
@@ -684,25 +749,27 @@ func (g *Game) InitializeFilters() {
 						InstantiationOff{FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES})),
 				&FilterAction{
 					FILTER_ACTION_EXECUTE_AFTER,
-					&ConditionActionType{ACTION_ATTACK},
+					NewANDCondition(
+						&ConditionActionType{ACTION_ATTACK},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE}, Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_PROPERTY_OWNER})),
 					NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
-					NewActionAddTrait(FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED)},
+					NewActionAddTrait(FILTER_SOURCE_PARAMETER_PROPERTY,TRAIT_USED)},
 				&FilterAction{
-					FILTER_ACTION_EXECUTE_BEFORE,
+					FILTER_ACTION_EXECUTE_AFTER,
 					NewANDCondition(
 						&ConditionActionType{ACTION_START_TURN},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PLAYER}, FILTER_SOURCE_PARAMETER_PLAYER)),
 					NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
-					NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED)},
+					NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_PROPERTY,TRAIT_USED)},
 				&FilterDeny{
 					NewANDCondition(
 						&ConditionActionType{ACTION_ATTACK},
-						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE}, FILTER_SOURCE_PARAMETER_SOURCE_CREATURE),
-						NewConditionEqual(InstantiationOff{TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED}}, 1)),
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE}, Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_PROPERTY_OWNER}),
+						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED}, 1)),
 					NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
@@ -712,8 +779,21 @@ func (g *Game) InitializeFilters() {
 				&ConditionActionType{ACTION_ATTACK},
 				NewORCondition(
 					NewConditionEqual(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, FILTER_SOURCE_PARAMETER_TARGET_CREATURE),
+					NewConditionEqual(TraitsCount{Accessor{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}, TRAIT_ATTACKED}, 1),
 					&ConditionActionDenied{NewActionAddTrait(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_ADDITIONAL_FOOD)})),	
 			nil})
+	g.Filters = append(g.Filters, 
+		&FilterAction{	
+			FILTER_ACTION_EXECUTE_AFTER,
+			&ConditionActionType{ACTION_ATTACK},
+			nil,
+			NewActionAddTrait(Accessor{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}, TRAIT_ATTACKED)})
+	g.Filters = append(g.Filters, 
+		&FilterAction{
+			FILTER_ACTION_EXECUTE_BEFORE,
+			&ConditionActionType{ACTION_START_TURN},
+			nil,
+			NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_PLAYER, TRAIT_ATTACKED)})
 }
 
 func (g *Game) AddCard(count int, properties ...*Property) {
@@ -828,14 +908,6 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 		}
 		g.NotifyAll(fmt.Sprintf("Executing action: %#v", action))
 		action.Execute(g)
-		g.NotifyAll("Creatures:")
-		g.Players.Do(func (val interface{}) {
-			player := val.(*Player)
-			g.NotifyAll(fmt.Sprintf("%#v:",player.Name))
-			for i, creature := range player.Creatures {
-				g.NotifyAll(fmt.Sprintf("%v) %#v", i, creature))
-			}
-		})
 		for _, filter := range g.Filters {
 			if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
 				stack.PushBack(filter.InstantiateFilterPrototype(g, action, true).(*FilterAction).GetAction())

@@ -69,7 +69,10 @@ func (c *Client) Notify(s string) {
 
 func (c *Client) GetChoice() int {
 	var msg string
-	websocket.Message.Receive(c.ws, &msg)
+	err := websocket.Message.Receive(c.ws, &msg)
+	if err != nil {
+		c.doneCh <- true
+	}
 	log.Println("Received client choice " + msg)
 	num,_ := strconv.Atoi(msg)
 	return num
