@@ -6,37 +6,40 @@ import (
 )
 
 type ChoiceMaker interface {
-	MakeChoice(*Game, []*Action) *Action
+	Notify(string)
+	GetChoice() int
+	MakeChoice([]*Action) *Action
+	GetName() string
 }
 
 type ConsoleChoiceMaker struct {
+	name string
 }
 
-func (c ConsoleChoiceMaker) MakeChoice(game *Game, actions []*Action) *Action {
+func (c *ConsoleChoiceMaker) Notify(s string) {
+	fmt.Printf(s)
+}
+
+func (c *ConsoleChoiceMaker) GetChoice() int {
+	var i int
+	fmt.Scanln(&i)
+	return i
+}
+
+func (c *ConsoleChoiceMaker) GetName() string {
+	return c.name
+}
+
+func (c *ConsoleChoiceMaker) MakeChoice(actions []*Action) *Action {
 	if len(actions) == 0 {
 		return nil
 	}
 	if len(actions) == 1 {
 		return actions[0]
 	}
-	fmt.Println("Creatures:")
-	game.Players.Do(func (val interface{}) {
-		player := val.(*Player)
-		fmt.Printf("%#v:\n",player.Name)
-		for i, creature := range player.Creatures {
-			fmt.Printf("%v) %#v\n", i, creature)
-		}
-	})
-	fmt.Println("Choose one action:")
+	c.Notify("Choose one action:")
 	for i, action := range actions {
-		fmt.Printf("%v) %#v\n", i, action)
+		c.Notify(fmt.Sprintf("%v) %#v", i, action))
 	}
-	var choiceNum int
-	//_, e := fmt.Scanln(&choiceNum)
-	_, e := fmt.Scanln(&choiceNum)
-	if e != nil {
-		fmt.Println(e)
-	}
-	return actions[choiceNum]
-	//return actions[1]
+	return actions[c.GetChoice()]
 }

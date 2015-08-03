@@ -141,9 +141,6 @@ func (f *FilterAllow) InstantiateFilterPrototype(game *Game, reason *Action, ins
 }
 
 func NewFilterAllow(condition Condition, removeCondition Condition, actions ...*Action) Filter {
-	if actions[0] == nil {
-		fmt.Println("WTF?!\n")
-	}
 	return &FilterAllow{condition, removeCondition, actions}
 }
 

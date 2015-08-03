@@ -2,10 +2,13 @@
 package main
 
 import (
-	"fmt"
+	"net/http"
+	"log"
 )
 
 func main() {
-	fmt.Println("Let's start game!")
-	NewGame("Andrii", "Opponent")
+	server := NewServer()
+	go server.Listen()
+	http.Handle("/", http.FileServer(http.Dir("webroot")))
+	log.Fatal(http.ListenAndServe(":80", nil))
 }

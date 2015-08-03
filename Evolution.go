@@ -19,6 +19,12 @@ type Game struct {
 	Food          int  
 }
 
+func (g *Game) NotifyAll(s string) {
+	g.Players.Do(func (val interface{}) {
+		val.(*Player).Notify(s)
+	})
+}
+
 type WithTraits interface {
 	GetTraits() []TraitType
 	AddTrait(trait TraitType)
@@ -202,8 +208,7 @@ func (p *Player) RemoveCreature(creature *Creature) {
 	}
 }
 
-func NewGame(players ...string) *Game {
-	fmt.Println("Here is library start!")
+func NewGame(players ...ChoiceMaker) *Game {
 	game := new(Game)
 	game.InitializeDeck()
 	game.InitializePlayers(players...)
@@ -270,11 +275,11 @@ func (g *Game) InitializeDeck() {
 	g.ShuffleDeck()
 }
 
-func (g *Game) InitializePlayers(names ...string) {
-	g.Players = ring.New(len(names))
-	g.PlayersCount = len(names)
-	for _, name := range names {
-		player := &Player{Name: name, ChoiceMaker: ConsoleChoiceMaker{}}
+func (g *Game) InitializePlayers(players ...ChoiceMaker) {
+	g.Players = ring.New(len(players))
+	g.PlayersCount = len(players)
+	for _, player := range players {
+		player := &Player{Name: player.GetName(), ChoiceMaker: player}
 		g.Players.Value = player
 		g.TakeCards(player, 12)
 		g.Players = g.Players.Next()
@@ -679,7 +684,7 @@ func (g *Game) InitializeFilters() {
 						InstantiationOff{FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES})),
 				&FilterAction{
 					FILTER_ACTION_EXECUTE_AFTER,
-					&ConditionActionType{ACTION_PIRACY},
+					&ConditionActionType{ACTION_ATTACK},
 					NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
@@ -792,17 +797,8 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 	stack := list.New()
 	stack.PushFront(rawAction)
 	for stackFront := stack.Front(); stackFront != nil ; stackFront = stack.Front() {
-		/*fmt.Println("Stack trace:")
-		i := 0
-		for a := stack.Front(); a != nil; a = a.Next() {
-			fmt.Printf("%v) %#v\n", i, a.Value)
-			i++
-		}*/
 		stack.Remove(stackFront)
 		action := stackFront.Value.(*Action)
-		if action.Type == ACTION_SELECT {
-			action = g.CurrentPlayer.ChoiceMaker.MakeChoice(g, action.Arguments[PARAMETER_ACTIONS].([]*Action))
-		}
 		replaced := false
 		for _, filter := range g.Filters {
 			if filter.GetType() == FILTER_ACTION_REPLACE && filter.CheckCondition(g, action) {
@@ -830,8 +826,16 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 		if replaced {
 			continue
 		}
-		fmt.Printf("Executing action: %#v\n", action)
+		g.NotifyAll(fmt.Sprintf("Executing action: %#v", action))
 		action.Execute(g)
+		g.NotifyAll("Creatures:")
+		g.Players.Do(func (val interface{}) {
+			player := val.(*Player)
+			g.NotifyAll(fmt.Sprintf("%#v:",player.Name))
+			for i, creature := range player.Creatures {
+				g.NotifyAll(fmt.Sprintf("%v) %#v", i, creature))
+			}
+		})
 		for _, filter := range g.Filters {
 			if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
 				stack.PushBack(filter.InstantiateFilterPrototype(g, action, true).(*FilterAction).GetAction())

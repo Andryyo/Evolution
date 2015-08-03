@@ -56,6 +56,8 @@ func (a *Action) GoString() string {
 		result += fmt.Sprintf("Destroy one food in bank")
 	case ACTION_ATTACK:
 		result += fmt.Sprintf("Attack %#v with %#v", a.Arguments[PARAMETER_TARGET_CREATURE], a.Arguments[PARAMETER_SOURCE_CREATURE])
+	case ACTION_SELECT_FROM_AVAILABLE_ACTIONS:
+		result += fmt.Sprint("Player selecting action")
 	default:
 		result += fmt.Sprintf("%+v", a)
 	}
@@ -69,13 +71,13 @@ func (a *Action) Execute(game *Game) {
 			game.ExecuteAction(action)
 		}
 	case ACTION_SELECT:
-		game.ExecuteAction(a.Arguments[PARAMETER_PLAYER].(*Player).MakeChoice(game, a.Arguments[PARAMETER_ACTIONS].([]*Action)))
+		game.ExecuteAction(a.Arguments[PARAMETER_PLAYER].(*Player).MakeChoice(a.Arguments[PARAMETER_ACTIONS].([]*Action)))
 	case ACTION_START_TURN:
 		break
 	case ACTION_SELECT_FROM_AVAILABLE_ACTIONS:
 		player := game.CurrentPlayer
 		actions := game.GetAlowedActions()
-		action := player.MakeChoice(game, actions)
+		action := player.MakeChoice(actions)
 		if action != nil {
 			game.ExecuteAction(action)
 		}
