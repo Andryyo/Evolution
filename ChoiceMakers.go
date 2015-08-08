@@ -22,7 +22,10 @@ func (c *ConsoleChoiceMaker) Notify(s string) {
 
 func (c *ConsoleChoiceMaker) GetChoice() int {
 	var i int
-	fmt.Scanln(&i)
+	_, err := fmt.Scanln(&i)
+	if err!=nil {
+		fmt.Println("Error!")
+	}
 	return i
 }
 

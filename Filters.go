@@ -164,11 +164,6 @@ func (f *FilterAction) GetCondition() Condition {
 }
 
 func (f *FilterAction) CheckCondition(game *Game, action *Action) bool {
-	/*if f.action.Type == ACTION_ADD_TRAIT && f.action.Arguments[PARAMETER_TRAIT].(TraitType) == TRAIT_FED {
-		fmt.Printf("Checking action %#v\n for action next player", action)
-		condition := f.condition.InstantiateFilterPrototypeCondition(game, action)
-		fmt.Printf("%#v,%#v\n", condition, condition.CheckCondition(game, action))
-	}*/
 	return f.condition == nil || f.condition.CheckCondition(game, action)
 }
 
@@ -424,6 +419,8 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 						result = append(result, creature)
 					}
 					return OneOf{result}
+				case FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT:
+					return len(game.Deck)
 				default:
 					panic("Unknown filter source parameter")
 			}

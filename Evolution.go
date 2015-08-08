@@ -253,6 +253,9 @@ func (g *Game) TakeCards(player *Player, count int) {
 
 func (g *Game) TakeCard(player *Player) {
 	deckLen := len(g.Deck)
+	if deckLen == 0 {
+		return
+	}
 	player.Cards = append(player.Cards, g.Deck[deckLen-1])
 	player.Cards[len(player.Cards)-1].Owners = []Source {player}
 	g.Deck = g.Deck[:deckLen-1]
@@ -279,13 +282,13 @@ func (g *Game) InitializeDeck() {
 	//cooperation := &Property{Name: "cooperation"}
 	highBodyWeight := &Property{Traits : []TraitType {TRAIT_HIGH_BODY_WEIGHT, TRAIT_REQUIRE_FOOD}}
 	g.Deck = make([]*Card, 0, 84)
-	g.AddCard(4, camouflage)
-	g.AddCard(4, burrowing)
-	g.AddCard(4, sharpVision)
-	g.AddCard(4, symbiosys)
-	g.AddCard(4, piracy)
-	g.AddCard(4, grazing)
-	g.AddCard(4, tailLoss)
+	g.AddCard(1, camouflage)
+	g.AddCard(1, burrowing)
+	g.AddCard(1, sharpVision)
+	g.AddCard(1, symbiosys)
+	g.AddCard(1, piracy)
+	g.AddCard(1, grazing)
+	g.AddCard(1, tailLoss)
 	/*g.AddCard(4, hibernation)
 	g.AddCard(4, poisonous)
 	g.AddCard(4, communication)
@@ -315,257 +318,29 @@ func (g *Game) InitializePlayers(players ...ChoiceMaker) {
 	g.CurrentPlayer = g.Players.Value.(*Player)
 }
 
+func (g *Game) AddFilter(filter Filter) {
+	g.Filters = append(g.Filters, filter)
+}
+
 func (g *Game) InitializeFilters() {
-	//Remove all pass trait on phase start
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_BEFORE, 
-			&ConditionActionType{ACTION_NEW_PHASE}, 
-			nil,
-			NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_ALL_PLAYERS, TRAIT_PASS)})
-	
-	//Start player turn on phase start
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER, 
-			NewANDCondition(
-				NewORCondition(&ConditionPhase{PHASE_DEVELOPMENT}, &ConditionPhase{PHASE_FEEDING}),
-				&ConditionActionType{ACTION_NEW_PHASE}), 
-			nil,
-			NewActionStartTurn(FILTER_SOURCE_PARAMETER_CURRENT_PLAYER)})
-			
-	//Start selecting after turn start
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER, 
-			NewANDCondition(
-				NewORCondition(&ConditionPhase{PHASE_DEVELOPMENT}, &ConditionPhase{PHASE_FEEDING}),
-				&ConditionActionType{ACTION_START_TURN}), 
-			nil,
-			NewActionSelectFromAvailableActions()})
-			
-	//Alow pass turn to next player in feeding mode
-	g.Filters = append(g.Filters,
-		NewFilterAllow(
-			&ConditionPhase{PHASE_FEEDING},
-			nil,
-			NewActionAddFilters(&FilterAction{
-					FILTER_ACTION_REPLACE,
-					&ConditionActionType{ACTION_SELECT_FROM_AVAILABLE_ACTIONS},
-					&ConditionActionType{ACTION_NEXT_PLAYER},
-					NewActionNextPlayer(g)})))
-			
-	//In feeding phase player make turns, until pass
-	g.Filters = append(g.Filters,
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER,
-			NewANDCondition(&ConditionPhase{PHASE_FEEDING},&ConditionActionType{ACTION_SELECT_FROM_AVAILABLE_ACTIONS}),
-			nil,
-			NewActionSelectFromAvailableActions()})
-			
-	//In development phase player pass turn to next player
-	g.Filters = append(g.Filters,
-	&FilterAction{
-		FILTER_ACTION_EXECUTE_AFTER,
-		NewANDCondition(&ConditionPhase{PHASE_DEVELOPMENT}, &ConditionActionType{ACTION_START_TURN}),
-		nil,
-		NewActionNextPlayer(g)})
-			
-	//Allow adding creatures in develompent phase
-	g.Filters = append(g.Filters, NewFilterAllow(&ConditionPhase{PHASE_DEVELOPMENT}, nil, NewActionAddCreature(FILTER_SOURCE_PARAMETER_CURRENT_PLAYER, FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS)))
-	//Allow adding pair properties in development phase
-	g.Filters = append(g.Filters, NewFilterAllow(&ConditionPhase{PHASE_DEVELOPMENT}, nil, NewActionAddPairProperty(FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES_PAIR, FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS_PROPERTIES)))
-	//Allow adding single properties in development phase
-	g.Filters = append(g.Filters, NewFilterAllow(&ConditionPhase{PHASE_DEVELOPMENT}, nil, NewActionAddSingleProperty(FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES, FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS_PROPERTIES)))
-	//Deny adding single properties if
-	g.Filters = append(g.Filters, 
-		&FilterDeny{
-			NewANDCondition(
-				&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
-				NewORCondition(
-					NewANDCondition(
-						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_FAT_TISSUE}, 0),
-						&ConditionContains{FILTER_SOURCE_PARAMETER_CREATURE_PROPERTIES, FILTER_SOURCE_PARAMETER_PROPERTY}),
-					NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PAIR}, 1))),
-			nil,
-			})
-	//Deny adding pair properties is
-	g.Filters = append(g.Filters,
-		&FilterDeny{
-			NewANDCondition(
-				&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PAIR}, 0)),
-			nil,
-		})
 		
-	//Allow pass in development and feeding phase
-	g.Filters = append(g.Filters, NewFilterAllow(NewORCondition(&ConditionPhase{PHASE_DEVELOPMENT}, &ConditionPhase{PHASE_FEEDING}), nil, &Action{ACTION_PASS, map[ArgumentName]Source {}}))
 	
-	//If all players pass in development phase, start food bank determination
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_REPLACE, 
-			NewANDCondition(
-				&ConditionPhase{PHASE_DEVELOPMENT},
-				&ConditionActionType{ACTION_NEXT_PLAYER},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_ALL_PLAYERS, TRAIT_PASS}, 1)), 
-			nil,
-			NewActionNewPhase(PHASE_FOOD_BANK_DETERMINATION)})
 	
-	//If all players pass in feeding phase, start extinction
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_REPLACE, 
-			NewANDCondition(
-				&ConditionPhase{PHASE_FEEDING},
-				&ConditionActionType{ACTION_NEXT_PLAYER},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_ALL_PLAYERS, TRAIT_PASS}, 1)), 
-			nil,
-			NewActionNewPhase(PHASE_EXTINCTION)})
-	
-	g.Filters = append(g.Filters,
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER,
-			NewANDCondition(
-				&ConditionActionType{ACTION_NEW_PHASE},
-				NewConditionEqual(FILTER_SOURCE_PARAMETER_PHASE, PHASE_EXTINCTION)),
-			nil,
-			&Action{ACTION_EXTINCT, map[ArgumentName]Source{}}})
-
-	g.Filters = append(g.Filters,
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER,
-			&ConditionActionType{ACTION_EXTINCT},
-			nil,
-			NewActionNewPhase(PHASE_DEVELOPMENT)})
-
-	
-	//If player pass - replace his turn with NextTurn
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_REPLACE, 
-			NewANDCondition(
-				&ConditionActionType{ACTION_SELECT_FROM_AVAILABLE_ACTIONS}, 
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_CURRENT_PLAYER, TRAIT_PASS}, 1)), 
-			nil,
-			NewActionNextPlayer(g)})
-			
-	//If player pass - replace his turn with NextTurn
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_REPLACE, 
-			NewANDCondition(
-				&ConditionActionType{ACTION_START_TURN}, 
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PLAYER, TRAIT_PASS}, 1)), 
-			nil,
-			NewActionNextPlayer(g)})
-	
-	//Determine food bank
-	g.Filters = append(g.Filters,
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER,
-			NewANDCondition(
-				&ConditionActionType{ACTION_NEW_PHASE},
-				NewConditionEqual(FILTER_SOURCE_PARAMETER_PHASE, PHASE_FOOD_BANK_DETERMINATION)),
-			nil,
-			&Action{ACTION_DETERMINE_FOOD_BANK, map[ArgumentName]Source {}}})
-		
-	//After food bank determination, start feeding phase
-	g.Filters = append(g.Filters,
-		&FilterAction{
-				FILTER_ACTION_EXECUTE_AFTER,
-				&ConditionActionType{ACTION_DETERMINE_FOOD_BANK},
-				nil,
-				NewActionNewPhase(PHASE_FEEDING)})
-		
-	//Allow get food from bank for creatures
-	g.Filters = append(g.Filters,
-		NewFilterAllow(
-			&ConditionPhase{PHASE_FEEDING},
-			nil,
-			NewActionGetFoodFromBank(FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES)))
-		
-	//Deny get food from bank
-	g.Filters = append(g.Filters,
-		&FilterDeny{
-			NewANDCondition(
-				&ConditionActionType{ACTION_GET_FOOD_FROM_BANK}, 
-				NewORCondition(
-					&ConditionActionDenied{NewActionAddTrait(FILTER_SOURCE_PARAMETER_CREATURE, TRAIT_FOOD)},
-					NewConditionEqual(FILTER_SOURCE_PARAMETER_FOOD_BANK_COUNT, 0))),
-			nil})
-	
-	//Deny food get if creature already full
-	g.Filters = append(g.Filters,
-		&FilterDeny{
-			NewANDCondition(
-				&ConditionActionType{ACTION_ADD_TRAIT},
-				NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, FILTER_SOURCE_PARAMETER_ANY_FOOD),
-				NewConditionEqual(
-					TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE, FILTER_SOURCE_PARAMETER_ALL_FOOD_AND_FAT},
-					TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE, FILTER_SOURCE_PARAMETER_FOOD_AND_FAT_LIMIT})),
-			nil})
-	
-	//Replace food get with fat get
-	g.Filters = append(g.Filters,
-		&FilterAction{
-			FILTER_ACTION_REPLACE,
-			NewANDCondition(
-				&ConditionActionType{ACTION_ADD_TRAIT},
-				NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, FILTER_SOURCE_PARAMETER_ANY_FOOD),
-				NewConditionEqual(
-					TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE, FILTER_SOURCE_PARAMETER_ALL_FOOD},
-					TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE, TRAIT_REQUIRE_FOOD})),
-			nil,
-			NewActionAddTrait(FILTER_SOURCE_PARAMETER_SOURCE, TRAIT_FAT)})
-	
-	//Set fed trait
-	g.Filters = append(g.Filters,
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_AFTER,
-			NewANDCondition(
-				&ConditionActionType{ACTION_ADD_TRAIT},
-				NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, FILTER_SOURCE_PARAMETER_ANY_FOOD),
-				NewConditionEqual(
-					TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE,FILTER_SOURCE_PARAMETER_ALL_FOOD},
-					TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE,TRAIT_REQUIRE_FOOD})),
-			nil,
-			NewActionAddTrait(FILTER_SOURCE_PARAMETER_SOURCE, TRAIT_FED)})
-
-	//Deny remove food from creature, if it have none
-	g.Filters = append(g.Filters,
-		&FilterDeny{
-			NewANDCondition(
-				&ConditionPhase{PHASE_FEEDING},
-				&ConditionActionType{ACTION_REMOVE_TRAIT},
-				NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, TRAIT_FOOD),
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE , TRAIT_FOOD}, 0)),
-			nil})
-	
-	g.Filters = append(g.Filters,
-		&FilterDeny{
-			NewANDCondition(
-				&ConditionPhase{PHASE_FEEDING},
-				&ConditionActionType{ACTION_REMOVE_TRAIT},
-				NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, TRAIT_ADDITIONAL_FOOD),
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE , TRAIT_ADDITIONAL_FOOD}, 0)),
-			nil})	
-		
 	//camouflage
 	g.Filters = append(g.Filters,
 		&FilterDeny{
 			NewANDCondition(
 				&ConditionActionType{ACTION_ATTACK},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_CAMOUFLAGE}, 1),
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_SHART_VISION}, 0)),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_CAMOUFLAGE}, 0),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_SHART_VISION}, 1)),
 			nil})
 	//burrowing
 	g.Filters = append(g.Filters,
 		&FilterDeny{
 			NewANDCondition(
 				&ConditionActionType{ACTION_ATTACK},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_BURROWING}, 1),
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_FED}, 1)),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_BURROWING}, 1),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_FED}, 1)),
 				nil})
 	//cymbiosys
 	g.Filters = append(g.Filters,
@@ -585,8 +360,7 @@ func (g *Game) InitializeFilters() {
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))},
 				&FilterDeny{
 					NewANDCondition(
-						&ConditionActionType{ACTION_ADD_TRAIT},
-						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_TRAIT}, FILTER_SOURCE_PARAMETER_ANY_FOOD),
+						NewORCondition(&ConditionActionType{ACTION_GAIN_FOOD},&ConditionActionType{ACTION_GAIN_ADDITIONAL_FOOD}),
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE}, FILTER_SOURCE_PARAMETER_RIGHT_CREATURE),
 						NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_LEFT_CREATURE}, TRAIT_FED}}, 0)),
 					NewANDCondition(
@@ -654,7 +428,7 @@ func (g *Game) InitializeFilters() {
 					NewANDCondition(
 						NewConditionEqual(FILTER_SOURCE_PARAMETER_TRAIT, TRAIT_ADDITIONAL_FOOD),
 						&ConditionActionDenied{NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_ADDITIONAL_FOOD)}),
-					&ConditionActionDenied{NewActionAddTrait(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_ADDITIONAL_FOOD)})),	
+					&ConditionActionDenied{NewActionGainAdditionalFood(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, 1)})),	
 			nil})
 	//grazing
 	g.Filters = append(g.Filters,
@@ -709,8 +483,8 @@ func (g *Game) InitializeFilters() {
 		&FilterDeny{
 			NewANDCondition(
 				&ConditionActionType{ACTION_ATTACK},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_HIGH_BODY_WEIGHT}, 1),
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_HIGH_BODY_WEIGHT}, 0)),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_HIGH_BODY_WEIGHT}, 0),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_HIGH_BODY_WEIGHT}, 1)),
 			nil})
 			
 	//Tail loss
@@ -779,21 +553,21 @@ func (g *Game) InitializeFilters() {
 				&ConditionActionType{ACTION_ATTACK},
 				NewORCondition(
 					NewConditionEqual(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, FILTER_SOURCE_PARAMETER_TARGET_CREATURE),
-					NewConditionEqual(TraitsCount{Accessor{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}, TRAIT_ATTACKED}, 1),
-					&ConditionActionDenied{NewActionAddTrait(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_ADDITIONAL_FOOD)})),	
+					&ConditionActionDenied{NewActionGainAdditionalFood(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, 2)})),	
 			nil})
 	g.Filters = append(g.Filters, 
 		&FilterAction{	
 			FILTER_ACTION_EXECUTE_AFTER,
 			&ConditionActionType{ACTION_ATTACK},
 			nil,
-			NewActionAddTrait(Accessor{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}, TRAIT_ATTACKED)})
-	g.Filters = append(g.Filters, 
-		&FilterAction{
-			FILTER_ACTION_EXECUTE_BEFORE,
-			&ConditionActionType{ACTION_START_TURN},
-			nil,
-			NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_PLAYER, TRAIT_ATTACKED)})
+			NewActionAddFilters(&FilterDeny{
+				NewORCondition(
+					&ConditionActionType{ACTION_BURN_FAT},
+					&ConditionActionType{ACTION_ATTACK},
+					&ConditionActionType{ACTION_GET_FOOD_FROM_BANK}),
+				&ConditionActionType{ACTION_START_TURN}})})
+			
+	g.InitializeBaseGameFlow()
 }
 
 func (g *Game) AddCard(count int, properties ...*Property) {
@@ -846,12 +620,10 @@ func (g *Game) GetAlowedActions() []*Action {
 			for _, action := range actions {
 				if action.Type == ACTION_SELECT {
 					result = append(result, g.ExpandActionSelect(action)...)
-					//fmt.Printf("%#v\n",result)
 				} else {
 					if !g.ActionDenied(action) {
 						result = append(result, action)
 					}
-					//fmt.Printf("%#v\n",result)
 				}
 			}
 		}
@@ -891,6 +663,9 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 				g.ExecuteAction(filter.InstantiateFilterPrototype(g, action, true).(*FilterAction).GetAction())
 			} 
 		}
+		if replaced {
+			continue
+		}
 		removed := true
 		for removed {
 			removed = false
@@ -902,9 +677,6 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 					break
 				}
 			}
-		}
-		if replaced {
-			continue
 		}
 		g.NotifyAll(fmt.Sprintf("Executing action: %#v", action))
 		action.Execute(g)
