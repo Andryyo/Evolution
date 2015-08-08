@@ -122,6 +122,7 @@ const (
 	TRAIT_BURNED_FAT
 	TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK
 	TRAIT_HIBERNATION
+	TRAIT_POISONOUS
 )
 
 func (t TraitType) GoString() string {
@@ -172,6 +173,8 @@ func (t TraitType) GoString() string {
 			return "Burned fat"
 		case TRAIT_HIBERNATION:
 			return "Hibernation"
+		case TRAIT_POISONOUS:
+			return "Poisonous"
 		default:
 			return string(t)
 	}

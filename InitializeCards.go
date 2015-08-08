@@ -238,12 +238,18 @@ func (g *Game) InitializeCardsFilters() {
 			FILTER_ACTION_EXECUTE_AFTER,
 			&ConditionActionType{ACTION_ATTACK},
 			nil,
-			NewActionAddFilters(&FilterDeny{
-				NewORCondition(
-					&ConditionActionType{ACTION_BURN_FAT},
-					&ConditionActionType{ACTION_ATTACK},
-					&ConditionActionType{ACTION_GET_FOOD_FROM_BANK}),
-				&ConditionActionType{ACTION_START_TURN}})})
+			NewActionAddFilters(
+				&FilterDeny{
+					NewORCondition(	
+						&ConditionActionType{ACTION_BURN_FAT},
+						&ConditionActionType{ACTION_ATTACK},
+						&ConditionActionType{ACTION_GET_FOOD_FROM_BANK}),
+					&ConditionActionType{ACTION_START_TURN}},
+				&FilterDeny{
+					NewANDCondition(
+						&ConditionActionType{ACTION_ATTACK},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE}, FILTER_SOURCE_PARAMETER_SOURCE_CREATURE)),
+					&ConditionActionType{ACTION_NEW_PHASE}})})
 				
 	//Hibernation
 	g.AddFilter(&FilterAction{
@@ -300,4 +306,28 @@ func (g *Game) InitializeCardsFilters() {
 			&ConditionActionType{ACTION_HIBERNATE},
 			NewConditionEqual(FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT, 0)),
 		nil})
+	
+	g.AddFilter(&FilterAction{
+		FILTER_ACTION_EXECUTE_AFTER,
+		NewANDCondition(
+				&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_POISONOUS}, 1)),
+		nil,
+		NewActionAddFilters(
+			&FilterAction{
+				FILTER_ACTION_EXECUTE_BEFORE,
+				NewANDCondition(
+					&ConditionActionType{ACTION_ATTACK},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_TARGET_CREATURE}, Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_PROPERTY_OWNER})),
+				NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+				NewActionAddFilters(
+					&FilterAction{
+						FILTER_ACTION_EXECUTE_BEFORE,
+						NewANDCondition(
+							&ConditionActionType{ACTION_NEW_PHASE},
+							NewConditionEqual(InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_PHASE}}, PHASE_EXTINCTION)),
+						&ConditionActionType{ACTION_NEW_PHASE},
+						NewActionRemoveCreature(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE})})})})
 }

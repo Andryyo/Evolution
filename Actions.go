@@ -68,7 +68,7 @@ func (a *Action) GoString() string {
 	case ACTION_GAIN_ADDITIONAL_FOOD:
 		result += fmt.Sprintf("Creature %#v gain additional food", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_EAT:
-		result += fmt.Sprint("Creature %#v was eaten", a.Arguments[PARAMETER_CREATURE])
+		result += fmt.Sprintf("Creature %#v was eaten", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_BURN_FAT:
 		result += fmt.Sprintf("Burn fat on creature %#v", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_HIBERNATE:

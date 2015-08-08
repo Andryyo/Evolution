@@ -271,8 +271,8 @@ func (g *Game) InitializeDeck() {
 	grazing := &Property{Traits : []TraitType {TRAIT_GRAZING}}
 	tailLoss := &Property{Traits : []TraitType {TRAIT_TAIL_LOSS}}
 	hibernation := &Property{Traits : []TraitType{TRAIT_HIBERNATION}}
-	/*poisonous := &Property{Name: "poisonous"}
-	communication := &Property{Name: "communication"}
+	poisonous := &Property{Traits: []TraitType{TRAIT_POISONOUS}}
+	/*communication := &Property{Name: "communication"}
 	scavenger := &Property{Name: "scavenger"}
 	running := &Property{Name: "running"}
 	mimicry := &Property{Name: "mimicry"}
@@ -292,8 +292,8 @@ func (g *Game) InitializeDeck() {
 	g.AddCard(4, grazing)
 	g.AddCard(4, tailLoss)
 	g.AddCard(4, hibernation)
-	/*g.AddCard(4, poisonous)
-	g.AddCard(4, communication)
+	g.AddCard(4, poisonous)
+	/*g.AddCard(4, communication)
 	g.AddCard(4, scavenger)
 	g.AddCard(4, running)
 	g.AddCard(4, mimicry)
@@ -314,7 +314,7 @@ func (g *Game) InitializePlayers(players ...ChoiceMaker) {
 	for _, player := range players {
 		player := &Player{Name: player.GetName(), ChoiceMaker: player}
 		g.Players.Value = player
-		g.TakeCards(player, 6)
+		g.TakeCards(player, 12)
 		g.Players = g.Players.Next()
 	}
 	g.CurrentPlayer = g.Players.Value.(*Player)
