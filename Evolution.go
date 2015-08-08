@@ -272,8 +272,8 @@ func (g *Game) InitializeDeck() {
 	tailLoss := &Property{Traits : []TraitType {TRAIT_TAIL_LOSS}}
 	hibernation := &Property{Traits : []TraitType{TRAIT_HIBERNATION}}
 	poisonous := &Property{Traits: []TraitType{TRAIT_POISONOUS}}
-	/*communication := &Property{Name: "communication"}
-	scavenger := &Property{Name: "scavenger"}
+	communication := &Property{Traits: []TraitType{TRAIT_COMMUNICATION, TRAIT_PAIR}}
+	/*scavenger := &Property{Name: "scavenger"}
 	running := &Property{Name: "running"}
 	mimicry := &Property{Name: "mimicry"}
 	swimming := &Property{Name: "swimming"}*/
@@ -293,15 +293,15 @@ func (g *Game) InitializeDeck() {
 	g.AddCard(4, tailLoss)
 	g.AddCard(4, hibernation)
 	g.AddCard(4, poisonous)
-	/*g.AddCard(4, communication)
-	g.AddCard(4, scavenger)
+	g.AddCard(4, communication)
+	/*g.AddCard(4, scavenger)
 	g.AddCard(4, running)
 	g.AddCard(4, mimicry)
 	g.AddCard(8, swimming)
 	*/
 	g.AddCard(4, parasite, carnivorous)
-	/*g.AddCard(4, parasite, fatTissue)
-	g.AddCard(4, cooperation, carnivorous)
+	g.AddCard(4, parasite, fatTissue)
+	/*g.AddCard(4, cooperation, carnivorous)
 	g.AddCard(4, cooperation, fatTissue)
 	g.AddCard(4, highBodyWeight, carnivorous)*/
 	g.AddCard(4, highBodyWeight, fatTissue)

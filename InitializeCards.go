@@ -307,6 +307,7 @@ func (g *Game) InitializeCardsFilters() {
 			NewConditionEqual(FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT, 0)),
 		nil})
 	
+	//Poisonous
 	g.AddFilter(&FilterAction{
 		FILTER_ACTION_EXECUTE_AFTER,
 		NewANDCondition(
@@ -330,4 +331,79 @@ func (g *Game) InitializeCardsFilters() {
 							NewConditionEqual(InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_PHASE}}, PHASE_EXTINCTION)),
 						&ConditionActionType{ACTION_NEW_PHASE},
 						NewActionRemoveCreature(InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE})})})})
+	
+	//Communication
+	g.AddFilter(&FilterAction{
+		FILTER_ACTION_EXECUTE_AFTER,
+		NewANDCondition(
+				&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_COMMUNICATION}, 1)),
+		nil,
+		NewActionAddFilters(
+			&FilterAction{
+				FILTER_ACTION_EXECUTE_AFTER,
+				NewANDCondition(
+					&ConditionActionType{ACTION_GET_FOOD_FROM_BANK},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}, FILTER_SOURCE_PARAMETER_LEFT_CREATURE),
+					NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_PROPERTY}, TRAIT_USED}}, 0)),
+				NewANDCondition(
+					&ConditionActionType{ACTION_REMOVE_PROPERTY},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY),
+					NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_PROPERTY}, TRAIT_USED}}, 0)),
+				NewActionAddTrait(FILTER_SOURCE_PARAMETER_RIGHT_CREATURE, TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK)},
+			&FilterAction{
+				FILTER_ACTION_EXECUTE_AFTER,
+				NewANDCondition(
+					&ConditionActionType{ACTION_GET_FOOD_FROM_BANK},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}, FILTER_SOURCE_PARAMETER_RIGHT_CREATURE),
+					NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_PROPERTY}, TRAIT_USED}}, 0)),
+				NewANDCondition(
+					&ConditionActionType{ACTION_REMOVE_PROPERTY},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+				NewActionAddTrait(FILTER_SOURCE_PARAMETER_LEFT_CREATURE, TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK)},
+			&FilterAction{
+				FILTER_ACTION_EXECUTE_AFTER,
+				NewANDCondition(
+					NewORCondition(
+						NewANDCondition(
+							&ConditionActionType{ACTION_GET_FOOD_FROM_BANK},
+							NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}, FILTER_SOURCE_PARAMETER_LEFT_CREATURE)),
+						&ConditionActionType{ACTION_START_TURN}),
+					NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_LEFT_CREATURE}, TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK}}, 1)),
+				NewANDCondition(
+					&ConditionActionType{ACTION_REMOVE_PROPERTY},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+				NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_LEFT_CREATURE, TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK)},
+			&FilterAction{
+				FILTER_ACTION_EXECUTE_AFTER,
+				NewANDCondition(
+					NewORCondition(
+						NewANDCondition(
+							&ConditionActionType{ACTION_GET_FOOD_FROM_BANK},
+							NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}, FILTER_SOURCE_PARAMETER_RIGHT_CREATURE)),
+						&ConditionActionType{ACTION_START_TURN}),
+					NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_RIGHT_CREATURE}, TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK}}, 1)),
+				NewANDCondition(
+					&ConditionActionType{ACTION_REMOVE_PROPERTY},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+				NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_RIGHT_CREATURE, TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK)},
+			&FilterAction{
+				FILTER_ACTION_EXECUTE_AFTER,
+				NewANDCondition(
+					&ConditionActionType{ACTION_GET_FOOD_FROM_BANK},
+					NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_PROPERTY}, TRAIT_USED}}, 0),
+					NewORCondition(
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}, FILTER_SOURCE_PARAMETER_LEFT_CREATURE),
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}, FILTER_SOURCE_PARAMETER_RIGHT_CREATURE))),
+				NewANDCondition(
+					&ConditionActionType{ACTION_REMOVE_PROPERTY},
+					NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+				NewActionSequence(
+					NewActionAddTrait(FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED),
+					NewActionAddFilters(
+						&FilterAction{
+							FILTER_ACTION_EXECUTE_BEFORE,
+							&ConditionActionType{ACTION_START_TURN},
+							&ConditionActionType{ACTION_START_TURN},
+							NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED)}))})})
 }
