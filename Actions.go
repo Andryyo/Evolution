@@ -71,6 +71,8 @@ func (a *Action) GoString() string {
 		result += fmt.Sprint("Creature %#v was eaten", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_BURN_FAT:
 		result += fmt.Sprintf("Burn fat on creature %#v", a.Arguments[PARAMETER_CREATURE])
+	case ACTION_HIBERNATE:
+		result += fmt.Sprintf("Hibernate creature %#v", a.Arguments[PARAMETER_CREATURE])
 	default:
 		result += fmt.Sprintf("%+v", a)
 	}
@@ -201,7 +203,6 @@ func (a *Action) Execute(game *Game) {
 			owner.(*Creature).RemoveCard(card)
 		}
 	case ACTION_ATTACK:
-		//player := a.Arguments[PARAMETER_PLAYER].(*Player)
 		sourceCreature := a.Arguments[PARAMETER_SOURCE_CREATURE].(*Creature)
 		switch target := a.Arguments[PARAMETER_TARGET_CREATURE].(type) {
 			case *Creature:
@@ -263,6 +264,7 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_EAT:
 		creature := a.Arguments[PARAMETER_CREATURE]
 		game.ExecuteAction(NewActionRemoveCreature(creature))
+	case ACTION_HIBERNATE:
 	}
 }
 
@@ -370,6 +372,10 @@ func NewActionEat(creature Source) *Action {
 
 func NewActionTakeCards() *Action {
 	return &Action{ACTION_TAKE_CARDS, map[ArgumentName]Source{}}
+}
+
+func NewActionHibernate(creature Source) *Action {
+	return &Action{ACTION_HIBERNATE, map[ArgumentName]Source{PARAMETER_CREATURE: creature}}
 }
 
 func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action, instantiate bool) *Action {

@@ -121,6 +121,7 @@ const (
 	TRAIT_CARNIVOROUS
 	TRAIT_BURNED_FAT
 	TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK
+	TRAIT_HIBERNATION
 )
 
 func (t TraitType) GoString() string {
@@ -169,6 +170,8 @@ func (t TraitType) GoString() string {
 			return "Can gran food from bank"
 		case TRAIT_BURNED_FAT:
 			return "Burned fat"
+		case TRAIT_HIBERNATION:
+			return "Hibernation"
 		default:
 			return string(t)
 	}
@@ -215,6 +218,7 @@ const (
 	ACTION_GAIN_FOOD
 	ACTION_GAIN_ADDITIONAL_FOOD
 	ACTION_EAT
+	ACTION_HIBERNATE
 )
 
 type ArgumentName int
