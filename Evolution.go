@@ -273,14 +273,14 @@ func (g *Game) InitializeDeck() {
 	hibernation := &Property{Traits : []TraitType{TRAIT_HIBERNATION}}
 	poisonous := &Property{Traits: []TraitType{TRAIT_POISONOUS}}
 	communication := &Property{Traits: []TraitType{TRAIT_COMMUNICATION, TRAIT_PAIR}}
-	/*scavenger := &Property{Name: "scavenger"}
-	running := &Property{Name: "running"}
-	mimicry := &Property{Name: "mimicry"}
-	swimming := &Property{Name: "swimming"}*/
+	//scavenger := &Property{Traits: []TraitType{TRAIT_SCAVENGER}}
+	/*running := &Property{Name: "running"}*/
+	mimicry := &Property{Traits: []TraitType{TRAIT_MIMICRY}}
+	swimming := &Property{Traits: []TraitType{TRAIT_SWIMMING}}
 	parasite := &Property{Traits : []TraitType {TRAIT_PARASITE, TRAIT_REQUIRE_FOOD, TRAIT_REQUIRE_FOOD}}
 	carnivorous := &Property{Traits : []TraitType {TRAIT_CARNIVOROUS, TRAIT_REQUIRE_FOOD}}
 	fatTissue := &Property{Traits : []TraitType {TRAIT_FAT_TISSUE}}
-	//cooperation := &Property{Name: "cooperation"}
+	cooperation := &Property{Traits : []TraitType {TRAIT_COOPERATION, TRAIT_PAIR}}
 	highBodyWeight := &Property{Traits : []TraitType {TRAIT_HIGH_BODY_WEIGHT, TRAIT_REQUIRE_FOOD}}
 	
 	g.Deck = make([]*Card, 0, 84)
@@ -294,16 +294,15 @@ func (g *Game) InitializeDeck() {
 	g.AddCard(4, hibernation)
 	g.AddCard(4, poisonous)
 	g.AddCard(4, communication)
-	/*g.AddCard(4, scavenger)
-	g.AddCard(4, running)
+	//g.AddCard(4, scavenger)
+	//g.AddCard(4, running)
 	g.AddCard(4, mimicry)
 	g.AddCard(8, swimming)
-	*/
 	g.AddCard(4, parasite, carnivorous)
 	g.AddCard(4, parasite, fatTissue)
-	/*g.AddCard(4, cooperation, carnivorous)
+	g.AddCard(4, cooperation, carnivorous)
 	g.AddCard(4, cooperation, fatTissue)
-	g.AddCard(4, highBodyWeight, carnivorous)*/
+	g.AddCard(4, highBodyWeight, carnivorous)
 	g.AddCard(4, highBodyWeight, fatTissue)
 	g.ShuffleDeck()
 }

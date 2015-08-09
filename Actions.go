@@ -83,7 +83,7 @@ func (a *Action) Execute(game *Game) {
 	switch a.Type {
 	case ACTION_SEQUENCE:
 		for _, action := range a.Arguments[PARAMETER_ACTIONS].([]*Action) {
-			game.ExecuteAction(action)
+			game.ExecuteAction(action.InstantiateFilterPrototypeAction(game, nil, true))
 		}
 	case ACTION_SELECT:
 		actions := a.Arguments[PARAMETER_ACTIONS].([]*Action)
@@ -173,7 +173,7 @@ func (a *Action) Execute(game *Game) {
 			return
 		}
 		game.Food--
-		game.ExecuteAction(NewActionAddTrait(creature, TRAIT_FOOD))
+		game.ExecuteAction(NewActionGainFood(creature))
 	case ACTION_BURN_FAT:
 		creature := a.Arguments[PARAMETER_CREATURE]
 		game.ExecuteAction(NewActionRemoveTrait(creature, TRAIT_FAT))
@@ -183,7 +183,7 @@ func (a *Action) Execute(game *Game) {
 		targetCreature := a.Arguments[PARAMETER_TARGET_CREATURE].(*Creature)
 		trait := a.Arguments[PARAMETER_TRAIT].(TraitType)
 		game.ExecuteAction(NewActionRemoveTrait(targetCreature, trait))
-		game.ExecuteAction(NewActionAddTrait(sourceCreature, TRAIT_ADDITIONAL_FOOD))
+		game.ExecuteAction(NewActionGainAdditionalFood(sourceCreature, 1))
 	case ACTION_DESTROY_BANK_FOOD:
 		if game.Food == 0 {
 			return
@@ -264,7 +264,6 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_EAT:
 		creature := a.Arguments[PARAMETER_CREATURE]
 		game.ExecuteAction(NewActionRemoveCreature(creature))
-	case ACTION_HIBERNATE:
 	}
 }
 

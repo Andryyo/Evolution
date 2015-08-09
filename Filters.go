@@ -211,7 +211,8 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 			if !instantiate {
 				return InstantiateFilterSourcePrototype(game, reason, t.source, true)
 			} else {
-				return InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+				return t
+				//return InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
 			}
 		case TypeOf:
 			if !instantiate {
@@ -273,6 +274,13 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 				case ACCESSOR_MODE_PROPERTY_OWNER:
 					property := instantiatedSource.(*Property)
 					return property.ContainingCard.Owners[0]
+				case ACCESSOR_MODE_CREATURES:
+					player := instantiatedSource.(*Player)
+					result := make([]Source, 0, len(player.Creatures))
+					for _,creature := range player.Creatures {
+						result = append(result, creature)
+					}
+					return OneOf{result}
 				default:
 					return nil
 			}

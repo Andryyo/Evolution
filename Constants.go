@@ -124,6 +124,10 @@ const (
 	TRAIT_HIBERNATION
 	TRAIT_POISONOUS
 	TRAIT_COMMUNICATION
+	TRAIT_SCAVENGER
+	TRAIT_SWIMMING
+	TRAIT_COOPERATION
+	TRAIT_MIMICRY
 )
 
 func (t TraitType) GoString() string {
@@ -178,6 +182,14 @@ func (t TraitType) GoString() string {
 			return "Poisonous"
 		case TRAIT_COMMUNICATION:
 			return "Communication"
+		case TRAIT_SCAVENGER:
+			return "Scavenger"
+		case TRAIT_SWIMMING:
+			return "Swimming"
+		case TRAIT_COOPERATION:
+			return "Cooperation"
+		case TRAIT_MIMICRY:
+			return "Mimicry"
 		default:
 			return string(t)
 	}
@@ -225,6 +237,7 @@ const (
 	ACTION_GAIN_ADDITIONAL_FOOD
 	ACTION_EAT
 	ACTION_HIBERNATE
+	ACTION_CHECK_FILTERS_REMOVE_CONDITIONS
 )
 
 type ArgumentName int
@@ -251,6 +264,7 @@ const (
 	ACCESSOR_MODE_ONE_OF_CREATURE_PROPERTIES AccessorMode = iota
 	ACCESSOR_MODE_CREATURE_OWNER
 	ACCESSOR_MODE_PROPERTY_OWNER
+	ACCESSOR_MODE_CREATURES
 )
 
 type Type int
