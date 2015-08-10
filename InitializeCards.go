@@ -209,10 +209,10 @@ func (g *Game) InitializeCardsFilters() {
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
 					NewActionAddTrait(FILTER_SOURCE_PARAMETER_PROPERTY,TRAIT_USED)},
 				&FilterAction{
-					FILTER_ACTION_EXECUTE_AFTER,
+					FILTER_ACTION_EXECUTE_BEFORE,
 					NewANDCondition(
-						&ConditionActionType{ACTION_START_TURN},
-						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PLAYER}, FILTER_SOURCE_PARAMETER_PLAYER)),
+						&ConditionActionType{ACTION_NEW_PHASE},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PHASE}, PHASE_EXTINCTION)),
 					NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
@@ -297,10 +297,10 @@ func (g *Game) InitializeCardsFilters() {
 						&FilterDeny{
 							NewANDCondition(
 								NewORCondition(&ConditionActionType{ACTION_GAIN_FOOD}, &ConditionActionType{ACTION_GAIN_ADDITIONAL_FOOD}),
-								NewConditionEqual(InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}}, InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE})),
+								NewConditionEqual(InstantiationOff{InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE}}}, InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE})),
 							NewANDCondition(
 								&ConditionActionType{ACTION_NEW_PHASE},
-								NewConditionEqual(InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_PHASE}}, PHASE_FEEDING))}))})})
+								NewConditionEqual(InstantiationOff{InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_PHASE}}}, PHASE_FEEDING))}))})})
 	g.AddFilter(&FilterDeny{
 		NewANDCondition(
 			&ConditionActionType{ACTION_HIBERNATE},
@@ -505,15 +505,20 @@ func (g *Game) InitializeCardsFilters() {
 							NewANDCondition(
 								&ConditionActionType{ACTION_ATTACK},
 								NewConditionEqual(
-									InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_TARGET_CREATURE}}, 
+									InstantiationOff{InstantiationOff{InstantiationOff{FILTER_SOURCE_PARAMETER_TARGET_CREATURE}}}, 
 									InstantiationOff{FILTER_SOURCE_PARAMETER_TARGET_CREATURE})),
 							NewORCondition(
-								&ConditionActionDenied{
-									NewActionAttack(
-										InstantiationOff{Accessor{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}}, 
+								&ConditionActionDenied{NewActionAttack(
+									InstantiationOff{Accessor{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}}, 
 										InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE},
-										InstantiationOff{InstantiationOff{Accessor{Accessor{InstantiationOn{InstantiationOn{FILTER_SOURCE_PARAMETER_TARGET_CREATURE}}, ACCESSOR_MODE_CREATURE_OWNER},ACCESSOR_MODE_CREATURES}}})},
-								&ConditionActionType{ACTION_ATTACK})}),
+											InstantiationOff{
+												InstantiationOff{
+														Accessor{
+															InstantiationOn{InstantiationOn{InstantiationOff{Accessor{
+																FILTER_SOURCE_PARAMETER_TARGET_CREATURE, 
+																ACCESSOR_MODE_CREATURE_OWNER}}}},
+														ACCESSOR_MODE_CREATURES}}})},
+								&ConditionActionType{ACTION_START_TURN})}),
 						NewActionAddFilters(
 							&FilterAction{
 								FILTER_ACTION_EXECUTE_BEFORE,
@@ -523,5 +528,11 @@ func (g *Game) InitializeCardsFilters() {
 						NewActionAttack(
 							InstantiationOff{Accessor{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}}, 
 							InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE},
-							InstantiationOff{InstantiationOff{Accessor{Accessor{InstantiationOn{InstantiationOn{FILTER_SOURCE_PARAMETER_TARGET_CREATURE}}, ACCESSOR_MODE_CREATURE_OWNER},ACCESSOR_MODE_CREATURES}}}))})})
+							InstantiationOff{
+								InstantiationOff{
+									Accessor{
+										InstantiationOn{InstantiationOn{InstantiationOff{Accessor{
+											FILTER_SOURCE_PARAMETER_TARGET_CREATURE, 
+											ACCESSOR_MODE_CREATURE_OWNER}}}},
+										ACCESSOR_MODE_CREATURES}}}))})})
 }

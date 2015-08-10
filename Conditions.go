@@ -152,7 +152,7 @@ func (c *ConditionEqual) InstantiateFilterPrototypeCondition(game *Game, reason 
 	}
 	defer func() {
 		if r := recover(); r!=nil {
-			fmt.Printf("%s\n", debug.Stack())
+			fmt.Printf("%v, %s\n", r, debug.Stack())
 			condition = &ConditionFalse{}
 		}
 	} ()

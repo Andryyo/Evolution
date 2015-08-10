@@ -211,8 +211,7 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 			if !instantiate {
 				return InstantiateFilterSourcePrototype(game, reason, t.source, true)
 			} else {
-				return t
-				//return InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+				return InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
 			}
 		case TypeOf:
 			if !instantiate {
