@@ -36,6 +36,10 @@ func (a *Action) GoString() string {
 		result += "Pass"
 	case ACTION_END_TURN:
 		result += "End turn"
+	case ACTION_ADD_TRAIT:
+		trait := a.Arguments[PARAMETER_TRAIT]
+		source := a.Arguments[PARAMETER_SOURCE]
+		result += fmt.Sprintf("Added trait %#v to %#v", trait, source)
 	case ACTION_NEW_PHASE:
 		switch a.Arguments[PARAMETER_PHASE] {
 			case PHASE_DEVELOPMENT:
@@ -68,7 +72,7 @@ func (a *Action) GoString() string {
 	case ACTION_GAIN_ADDITIONAL_FOOD:
 		result += fmt.Sprintf("Creature %#v gain additional food", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_EAT:
-		result += fmt.Sprintf("Creature %#v was eaten", a.Arguments[PARAMETER_CREATURE])
+		result += fmt.Sprintf("Creature %#v was eaten", a.Arguments[PARAMETER_TARGET_CREATURE])
 	case ACTION_BURN_FAT:
 		result += fmt.Sprintf("Burn fat on creature %#v", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_HIBERNATE:
@@ -86,7 +90,10 @@ func (a *Action) Execute(game *Game) {
 			game.ExecuteAction(action.InstantiateFilterPrototypeAction(game, nil, true))
 		}
 	case ACTION_SELECT:
-		actions := a.Arguments[PARAMETER_ACTIONS].([]*Action)
+		actions := game.ExpandActionSelect(a)
+		if len(actions) == 0 {
+			return
+		}
 		chooser := actions[0].Arguments[PARAMETER_PLAYER].(*Player)
 		game.ExecuteAction(chooser.MakeChoice(actions))
 	case ACTION_START_TURN:
@@ -206,12 +213,30 @@ func (a *Action) Execute(game *Game) {
 		sourceCreature := a.Arguments[PARAMETER_SOURCE_CREATURE].(*Creature)
 		switch target := a.Arguments[PARAMETER_TARGET_CREATURE].(type) {
 			case *Creature:
-				game.ExecuteAction(NewActionEat(target))
+				game.ExecuteAction(NewActionEat(sourceCreature, target))
 				game.ExecuteAction(NewActionGainAdditionalFood(sourceCreature, 2))
 			case *Property:
 				game.ExecuteAction(NewActionRemoveCard(target.ContainingCard))
 				game.ExecuteAction(NewActionGainAdditionalFood(sourceCreature, 1))
 		}
+	case ACTION_RANDOM_ATTACK:
+		source := a.Arguments[PARAMETER_SOURCE_CREATURE]
+		target := a.Arguments[PARAMETER_TARGET_CREATURE]
+		chooser := a.Arguments[PARAMETER_PLAYER]
+		roll := rand.Intn(6)+1
+		if roll > 3 {
+			game.ExecuteAction(NewActionAttack(chooser, source, target))
+		} else {
+			game.ExecuteAction(
+				NewActionAddFilters(
+					&FilterDeny{
+						NewANDCondition(
+							&ConditionActionType{ACTION_ATTACK},
+							NewConditionEqual(FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, source)),
+						&ConditionActionType{ACTION_NEW_PHASE}},
+					&FilterDeny{
+						&ConditionActionType{ACTION_ATTACK},
+						&ConditionActionType{ACTION_START_TURN}}))}
 	case ACTION_EXTINCT:
 		game.Players.Do(func (val interface{}) {
 			player := val.(*Player)
@@ -262,8 +287,20 @@ func (a *Action) Execute(game *Game) {
 			game.ExecuteAction(NewActionAddTrait(creature, TRAIT_ADDITIONAL_FOOD))
 		}
 	case ACTION_EAT:
-		creature := a.Arguments[PARAMETER_CREATURE]
-		game.ExecuteAction(NewActionRemoveCreature(creature))
+		target := a.Arguments[PARAMETER_TARGET_CREATURE]
+		game.ExecuteAction(NewActionRemoveCreature(target))
+	case ACTION_SCAVENGE:
+		game.Players.Do(func (val interface {}) {
+			for _,creature := range val.(*Player).Creatures {
+				if creature.ContainsTrait(TRAIT_SCAVENGER) {
+					condition := &ConditionActionDenied{NewActionGainAdditionalFood(creature, 1)}
+					if !condition.CheckCondition(game, nil) {
+						game.ExecuteAction(NewActionGainAdditionalFood(creature, 1))
+						return
+					}
+				}
+			}
+		})
 	}
 }
 
@@ -365,8 +402,8 @@ func NewActionGainAdditionalFood(creature Source, count int) *Action {
 	return &Action{ACTION_GAIN_ADDITIONAL_FOOD, map[ArgumentName]Source{PARAMETER_CREATURE : creature, PARAMETER_COUNT: count}}
 }
 
-func NewActionEat(creature Source) *Action {
-	return &Action{ACTION_EAT, map[ArgumentName]Source{PARAMETER_CREATURE : creature}}
+func NewActionEat(source Source, target Source) *Action {
+	return &Action{ACTION_EAT, map[ArgumentName]Source{PARAMETER_SOURCE_CREATURE : source, PARAMETER_TARGET_CREATURE: target}}
 }
 
 func NewActionTakeCards() *Action {
@@ -375,6 +412,14 @@ func NewActionTakeCards() *Action {
 
 func NewActionHibernate(creature Source) *Action {
 	return &Action{ACTION_HIBERNATE, map[ArgumentName]Source{PARAMETER_CREATURE: creature}}
+}
+
+func NewActionRandomAttack(player Source, sourceCreature Source, targetCreature Source) *Action {
+	return &Action{ACTION_RANDOM_ATTACK, map[ArgumentName]Source{PARAMETER_PLAYER: player, PARAMETER_SOURCE_CREATURE: sourceCreature, PARAMETER_TARGET_CREATURE: targetCreature}}
+}
+
+func NewActionScavenge() *Action {
+	return &Action{ACTION_SCAVENGE, map[ArgumentName]Source{}}
 }
 
 func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action, instantiate bool) *Action {

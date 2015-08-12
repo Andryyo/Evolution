@@ -40,10 +40,6 @@ type Card struct {
 	Owners         []Source
 }
 
-func (c *Card) GetTraits() []TraitType {
-	return c.ActiveProperty.Traits
-}
-
 func (c *Card) GoString() string {
 	propertiesCount := len(c.Properties)
 	if propertiesCount == 0 {
@@ -148,7 +144,7 @@ func (c *Creature) GetTraits() []TraitType {
 		result = append(result, trait)
 	}
 	for _,card := range c.Tail {
-		result = append(result, card.GetTraits()...)
+		result = append(result, card.ActiveProperty.GetTraits()...)
 	}
 	return result
 }
@@ -178,6 +174,11 @@ func (c *Creature) RemoveCard(card *Card) {
 func (c *Creature) ContainsTrait(trait TraitType) bool {
 	for _,t := range c.Traits {
 		if trait == t {
+			return true
+		}
+	}
+	for _,card := range c.Tail {
+		if card.ActiveProperty.ContainsTrait(trait) {
 			return true
 		}
 	}
@@ -273,8 +274,8 @@ func (g *Game) InitializeDeck() {
 	hibernation := &Property{Traits : []TraitType{TRAIT_HIBERNATION}}
 	poisonous := &Property{Traits: []TraitType{TRAIT_POISONOUS}}
 	communication := &Property{Traits: []TraitType{TRAIT_COMMUNICATION, TRAIT_PAIR}}
-	//scavenger := &Property{Traits: []TraitType{TRAIT_SCAVENGER}}
-	/*running := &Property{Name: "running"}*/
+	scavenger := &Property{Traits: []TraitType{TRAIT_SCAVENGER}}
+	running := &Property{Traits: []TraitType{TRAIT_RUNNING}}
 	mimicry := &Property{Traits: []TraitType{TRAIT_MIMICRY}}
 	swimming := &Property{Traits: []TraitType{TRAIT_SWIMMING}}
 	parasite := &Property{Traits : []TraitType {TRAIT_PARASITE, TRAIT_REQUIRE_FOOD, TRAIT_REQUIRE_FOOD}}
@@ -294,8 +295,8 @@ func (g *Game) InitializeDeck() {
 	g.AddCard(4, hibernation)
 	g.AddCard(4, poisonous)
 	g.AddCard(4, communication)
-	//g.AddCard(4, scavenger)
-	//g.AddCard(4, running)
+	g.AddCard(4, scavenger)
+	g.AddCard(4, running)
 	g.AddCard(4, mimicry)
 	g.AddCard(8, swimming)
 	g.AddCard(4, parasite, carnivorous)
@@ -313,7 +314,7 @@ func (g *Game) InitializePlayers(players ...ChoiceMaker) {
 	for _, player := range players {
 		player := &Player{Name: player.GetName(), ChoiceMaker: player}
 		g.Players.Value = player
-		g.TakeCards(player, 12)
+		g.TakeCards(player, 6)
 		g.Players = g.Players.Next()
 	}
 	g.CurrentPlayer = g.Players.Value.(*Player)

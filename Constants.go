@@ -128,6 +128,7 @@ const (
 	TRAIT_SWIMMING
 	TRAIT_COOPERATION
 	TRAIT_MIMICRY
+	TRAIT_RUNNING
 )
 
 func (t TraitType) GoString() string {
@@ -190,6 +191,8 @@ func (t TraitType) GoString() string {
 			return "Cooperation"
 		case TRAIT_MIMICRY:
 			return "Mimicry"
+		case TRAIT_RUNNING:
+			return "Running"
 		default:
 			return string(t)
 	}
@@ -237,7 +240,8 @@ const (
 	ACTION_GAIN_ADDITIONAL_FOOD
 	ACTION_EAT
 	ACTION_HIBERNATE
-	ACTION_CHECK_FILTERS_REMOVE_CONDITIONS
+	ACTION_RANDOM_ATTACK
+	ACTION_SCAVENGE
 )
 
 type ArgumentName int

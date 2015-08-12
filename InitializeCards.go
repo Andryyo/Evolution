@@ -4,6 +4,37 @@ package main
 
 func (g *Game) InitializeCardsFilters() {
 	
+	//Running
+	g.AddFilter(
+		&FilterAction{
+			FILTER_ACTION_EXECUTE_AFTER,
+			NewANDCondition(
+				&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_RUNNING}, 1)),
+			nil,
+			NewActionAddFilters(
+				&FilterAction{
+					FILTER_ACTION_REPLACE,
+					NewANDCondition(
+						&ConditionActionType{ACTION_ATTACK},
+						NewConditionEqual(Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_PROPERTY_OWNER},InstantiationOff{FILTER_SOURCE_PARAMETER_TARGET_CREATURE}),
+						NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_PROPERTY}, TRAIT_USED}}, 0)),
+					NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
+					NewActionSequence(
+						NewActionAddTrait(FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED),
+						NewActionAddFilters(
+							&FilterAction{
+								FILTER_ACTION_EXECUTE_BEFORE,
+								&ConditionActionType{ACTION_START_TURN},
+								&ConditionActionType{ACTION_START_TURN},
+								NewActionRemoveTrait(FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_USED)}),
+						NewActionRandomAttack(
+							InstantiationOff{FILTER_SOURCE_PARAMETER_PLAYER}, 
+							InstantiationOff{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE}, 
+							InstantiationOff{FILTER_SOURCE_PARAMETER_TARGET_CREATURE}))})})
+	
 	//camouflage
 	g.Filters = append(g.Filters,
 		&FilterDeny{
@@ -261,7 +292,9 @@ func (g *Game) InitializeCardsFilters() {
 		NewActionAddFilters(
 			NewFilterAllow(	
 				&ConditionPhase{PHASE_FEEDING},
-				nil,
+				NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY)),
 				NewActionHibernate(Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_PROPERTY_OWNER})),
 			&FilterDeny{
 				NewANDCondition(
@@ -535,4 +568,11 @@ func (g *Game) InitializeCardsFilters() {
 											FILTER_SOURCE_PARAMETER_TARGET_CREATURE, 
 											ACCESSOR_MODE_CREATURE_OWNER}}}},
 										ACCESSOR_MODE_CREATURES}}}))})})
+	
+	// scavenge
+	g.AddFilter(&FilterAction{
+		FILTER_ACTION_EXECUTE_AFTER,
+		&ConditionActionType{ACTION_EAT},
+		nil,
+		NewActionScavenge()})
 }
