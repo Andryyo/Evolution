@@ -2,14 +2,14 @@
 package main
 
 import (
-	//"net/http"
-	//"log"
+	"net/http"
+	"log"
 )
 
 func main() {
-	//server := NewServer()
-	//go server.Listen()
-	//http.Handle("/", http.FileServer(http.Dir("webroot")))
-	//log.Fatal(http.ListenAndServe(":8080", nil))
-	NewGame(&ConsoleChoiceMaker{"One"}, &ConsoleChoiceMaker{"Two"})
+	server := NewServer()
+	go server.Listen()
+	http.Handle("/", http.FileServer(http.Dir("webroot")))
+	log.Fatal(http.ListenAndServe(":8080", nil))
+	//NewGame(&ConsoleChoiceMaker{"One"}, &ConsoleChoiceMaker{"Two"})
 }

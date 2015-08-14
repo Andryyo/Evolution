@@ -34,7 +34,7 @@ type Accessor struct {
 	mode AccessorMode
 }
 
-func (t *TraitsCount) GoString() string {
+func (t TraitsCount) GoString() string {
 	return fmt.Sprintf("%#v count of %#v", t.traits, t.source)
 }
 
@@ -86,7 +86,7 @@ func (f *FilterDeny) InstantiateFilterPrototype(game *Game, reason *Action, inst
 	return &FilterDeny{condition, removeCondition}
 }
 
-func (f *FilterDeny) GoString() string {
+func (f FilterDeny) GoString() string {
 	return fmt.Sprintf("Deny %#v", f.condition)
 }
 

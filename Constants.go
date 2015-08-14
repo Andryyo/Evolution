@@ -96,116 +96,49 @@ func (t FilterSourcePrototype) GoString() string {
 	}
 }
 
-type TraitType int
+type TraitType string
 
 const (
-	TRAIT_PASS TraitType = iota
-	TRAIT_USED
-	TRAIT_TOOK_FOOD
-	TRAIT_SHART_VISION
-	TRAIT_CAMOUFLAGE
-	TRAIT_BURROWING
-	TRAIT_FED
-	TRAIT_PAIR
-	TRAIT_FAT_TISSUE
-	TRAIT_FOOD
-	TRAIT_ADDITIONAL_FOOD
-	TRAIT_REQUIRE_FOOD
-	TRAIT_FAT
-	TRAIT_SIMBIOSYS
-	TRAIT_PIRACY
-	TRAIT_HIGH_BODY_WEIGHT
-	TRAIT_GRAZING
-	TRAIT_TAIL_LOSS
-	TRAIT_PARASITE
-	TRAIT_CARNIVOROUS
-	TRAIT_BURNED_FAT
-	TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK
-	TRAIT_HIBERNATION
-	TRAIT_POISONOUS
-	TRAIT_COMMUNICATION
-	TRAIT_SCAVENGER
-	TRAIT_SWIMMING
-	TRAIT_COOPERATION
-	TRAIT_MIMICRY
-	TRAIT_RUNNING
+	TRAIT_PASS TraitType = "Pass"
+	TRAIT_USED = "Used"
+	TRAIT_TOOK_FOOD = "Food"
+	TRAIT_SHART_VISION = "Sharp vision"
+	TRAIT_CAMOUFLAGE = "Camouflage"
+	TRAIT_BURROWING = "Burowing"
+	TRAIT_FED = "Fed"
+	TRAIT_PAIR = "Pair"
+	TRAIT_FAT_TISSUE = "Fat tissue"
+	TRAIT_FOOD = "Food"
+	TRAIT_ADDITIONAL_FOOD = "Additional food"
+	TRAIT_REQUIRE_FOOD = "Require food"
+	TRAIT_FAT = "Fat"
+	TRAIT_SIMBIOSYS = "Symbiosys"
+	TRAIT_PIRACY = "Piracy"
+	TRAIT_HIGH_BODY_WEIGHT = "High body weight"
+	TRAIT_GRAZING = "Grazing"
+	TRAIT_TAIL_LOSS = "Tail loss"
+	TRAIT_PARASITE = "Parasite"
+	TRAIT_CARNIVOROUS = "Carnivorous"
+	TRAIT_BURNED_FAT = "Burned fat"
+	TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK = "Additional get food from bank"
+	TRAIT_HIBERNATION = "Hibernation"
+	TRAIT_POISONOUS = "Poisonous"
+	TRAIT_COMMUNICATION = "Communication"
+	TRAIT_SCAVENGER = "Scavenger"
+	TRAIT_SWIMMING = "Swimming"
+	TRAIT_COOPERATION = "Cooperation"
+	TRAIT_MIMICRY = "Mimicry"
+	TRAIT_RUNNING = "Running"
 )
 
-func (t TraitType) GoString() string {
-	switch t {
-		case TRAIT_PASS:
-			return "Pass"
-		case TRAIT_TOOK_FOOD:
-			return "Already took food"
-		case TRAIT_SHART_VISION:
-			return "Sharp vision"
-		case TRAIT_CAMOUFLAGE:
-			return "Camouflage"
-		case TRAIT_BURROWING:
-			return "Burrowing"
-		case TRAIT_FED:
-			return "Fed"
-		case TRAIT_PAIR:
-			return "Pair"
-		case TRAIT_SIMBIOSYS:
-			return "Simbiosys"
-		case TRAIT_FAT_TISSUE:
-			return "Fat tissue"
-		case TRAIT_FOOD:
-			return "Food"
-		case TRAIT_ADDITIONAL_FOOD:
-			return "Additional food"
-		case TRAIT_REQUIRE_FOOD:
-			return "Require food"
-		case TRAIT_FAT:
-			return "Fat"
-		case TRAIT_PIRACY:
-			return "Piracy"
-		case TRAIT_USED:
-			return "Used"
-		case TRAIT_HIGH_BODY_WEIGHT:
-			return "High bopy weight"
-		case TRAIT_GRAZING:
-			return "Grazing"
-		case TRAIT_TAIL_LOSS:
-			return "Tail"
-		case TRAIT_PARASITE:
-			return "Parasite"
-		case TRAIT_CARNIVOROUS:
-			return "Carnivorous"
-		case TRAIT_ADDITIONAL_GET_FOOD_FROM_BANK:
-			return "Can grab food from bank"
-		case TRAIT_BURNED_FAT:
-			return "Burned fat"
-		case TRAIT_HIBERNATION:
-			return "Hibernation"
-		case TRAIT_POISONOUS:
-			return "Poisonous"
-		case TRAIT_COMMUNICATION:
-			return "Communication"
-		case TRAIT_SCAVENGER:
-			return "Scavenger"
-		case TRAIT_SWIMMING:
-			return "Swimming"
-		case TRAIT_COOPERATION:
-			return "Cooperation"
-		case TRAIT_MIMICRY:
-			return "Mimicry"
-		case TRAIT_RUNNING:
-			return "Running"
-		default:
-			return string(t)
-	}
-}
-
-type PhaseType int
+type PhaseType string
 
 const (
-	PHASE_DEVELOPMENT PhaseType = iota
-	PHASE_FOOD_BANK_DETERMINATION
-	PHASE_FEEDING
-	PHASE_EXTINCTION
-	PHASE_FINAL
+	PHASE_DEVELOPMENT PhaseType = "Development"
+	PHASE_FOOD_BANK_DETERMINATION = "Food bank determination"
+	PHASE_FEEDING = "Feeding"
+	PHASE_EXTINCTION = "Extinction"
+	PHASE_FINAL = "Final"
 )
 
 type ActionType int
@@ -244,22 +177,22 @@ const (
 	ACTION_SCAVENGE
 )
 
-type ArgumentName int
+type ArgumentName string
 
 const (
-	PARAMETER_PROPERTY ArgumentName = iota
-	PARAMETER_PHASE
-	PARAMETER_PLAYER
-	PARAMETER_PAIR
-	PARAMETER_CARD
-	PARAMETER_ACTIONS
-	PARAMETER_CREATURE
-	PARAMETER_TRAIT
-	PARAMETER_SOURCE
-	PARAMETER_FILTERS
-	PARAMETER_SOURCE_CREATURE
-	PARAMETER_TARGET_CREATURE	
-	PARAMETER_COUNT
+	PARAMETER_PROPERTY ArgumentName = "Property"
+	PARAMETER_PHASE = "Phase"
+	PARAMETER_PLAYER = "Player"
+	PARAMETER_PAIR = "Pair"
+	PARAMETER_CARD = "Card"
+	PARAMETER_ACTIONS = "Actions"
+	PARAMETER_CREATURE = "Creature"
+	PARAMETER_TRAIT = "Trait"
+	PARAMETER_SOURCE = "Source"
+	PARAMETER_FILTERS = "Filters"
+	PARAMETER_SOURCE_CREATURE = "Source creature"
+	PARAMETER_TARGET_CREATURE = "Taget creature"
+	PARAMETER_COUNT = "Count"
 )
 
 type AccessorMode int

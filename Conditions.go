@@ -41,7 +41,7 @@ func (c *ANDCondition) InstantiateFilterPrototypeCondition(game *Game, reason *A
 	return NewANDCondition(conditions...)
 }
 
-func (c *ANDCondition) GoString() string {
+func (c ANDCondition) GoString() string {
 	if len(c.conditions) == 0 {
 		return "()"
 	}
@@ -70,7 +70,7 @@ func NewORCondition(condifions ...Condition) *ORCondition {
 	return &ORCondition{condifions}
 }
 
-func (c *ORCondition) GoString() string {
+func (c ORCondition) GoString() string {
 	if len(c.conditions) == 0 {
 		return "()"
 	}
@@ -142,7 +142,7 @@ func (c *ConditionEqual) CheckCondition(game *Game, action *Action) bool {
 	}
 }
 
-func (c *ConditionEqual) GoString() string {
+func (c ConditionEqual) GoString() string {
 	return fmt.Sprintf("(Equals %+v)", c.sources)
 }
 
@@ -205,7 +205,7 @@ func (c *ConditionActionType) CheckCondition(game *Game, action *Action) bool {
 	return c.actionType == action.Type
 }
 
-func (c *ConditionActionType) GoString() string {
+func (c ConditionActionType) GoString() string {
 	return fmt.Sprintf("(Action type %#v)", c.actionType)
 }
 
@@ -221,7 +221,7 @@ func (c *NOTCondition) CheckCondition(game *Game, action *Action) bool {
 	return !c.condition.CheckCondition(game, action)
 }
 
-func (c *NOTCondition) GoString() string {
+func (c NOTCondition) GoString() string {
 	return fmt.Sprintf("!%#v", c.condition)
 }
 
@@ -240,7 +240,7 @@ func (c *ConditionPhase) CheckCondition(game *Game, action *Action) bool {
 	return c.phase == game.CurrentPhase
 }
 
-func (c *ConditionPhase) GoString() string {
+func (c ConditionPhase) GoString() string {
 	return fmt.Sprintf("(Game phase %#v)", c.phase)
 }
 
@@ -255,7 +255,7 @@ func (c *ConditionFalse) CheckCondition(game *Game, action *Action) bool {
 	return false
 }
 
-func (c *ConditionFalse) GoString() string {
+func (c ConditionFalse) GoString() string {
 	return fmt.Sprintf("(False)")
 }
 
@@ -272,7 +272,7 @@ func (c *ConditionActionDenied) CheckCondition(game *Game, action *Action) bool 
 	return game.ActionDenied(instantiatedActions)
 }
 
-func (c *ConditionActionDenied) GoString() string {
+func (c ConditionActionDenied) GoString() string {
 	return fmt.Sprintf("Action %#v denied", c.action)
 }
 
@@ -312,7 +312,7 @@ func (c *ConditionContains) CheckCondition(game *Game, action *Action) bool {
 	return false
 }
 
-func (c *ConditionContains) GoString() string {
+func (c ConditionContains) GoString() string {
 	return fmt.Sprintf("(%#v contains %#v)", c.container, c.element)
 }
 

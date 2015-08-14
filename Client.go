@@ -9,21 +9,51 @@ import (
 	"log"
 )
 
+type MessageType int
+
+const (
+	MESSAGE_EXECUTED_ACTION MessageType = iota
+	MESSAGE_CHOICES_LIST
+)
+
+type Message struct {
+	Type MessageType
+	Value interface{}
+}
+
+type MessageExecutedActionValue struct {
+	Action ActionDTO
+	State GameStateDTO
+}
+
+func NewMessageChoicesList(actions []ActionDTO) Message {
+	return Message{MESSAGE_CHOICES_LIST, actions}
+}
+
+func NewMessageExecutedAction(action ActionDTO, state GameStateDTO) Message {
+	return Message{MESSAGE_EXECUTED_ACTION, MessageExecutedActionValue{action, state}}
+}
+
 type Client struct {
 	id int
 	name string
 	ws *websocket.Conn
 	server *Server
-	ch chan string
+	ch chan Message
 	doneCh chan bool
+	player *Player
 }
 
 func NewClient(ws *websocket.Conn, server *Server) *Client {
 	maxId++
-	ch := make(chan string, channelBufSize)
+	ch := make(chan Message, channelBufSize)
 	doneCh := make(chan bool)
 
-	return &Client{maxId, "", ws, server, ch, doneCh}
+	return &Client{maxId, "", ws, server, ch, doneCh, nil}
+}
+
+func (c *Client) SetOwner(player *Player) {
+	c.player = player
 }
 
 func (c *Client) Listen() {
@@ -52,8 +82,10 @@ func (c *Client) listenWrite() {
 
 		// send message to the client
 		case msg := <-c.ch:
-			websocket.Message.Send(c.ws, msg)
-
+			err := websocket.JSON.Send(c.ws, msg)
+			if err != nil {
+				fmt.Println(err)
+			}
 		// receive done request
 		case <-c.doneCh:
 			c.server.Del(c)
@@ -63,8 +95,110 @@ func (c *Client) listenWrite() {
 	}
 }
 
-func (c *Client) Notify(s string) {
-	c.ch <- s
+type ActionDTO struct {
+	Type ActionType
+	Arguments map[ArgumentName]string
+}
+
+func NewActionDTO(action *Action) ActionDTO{
+	dto := ActionDTO{action.Type, map[ArgumentName]string{}}
+	for key,value := range action.Arguments {
+		switch v := value.(type) {
+			case *Player: dto.Arguments[key] = fmt.Sprintf("%p",v)
+			case *Creature: dto.Arguments[key] = fmt.Sprintf("%p", v)
+			case *Card: dto.Arguments[key] = fmt.Sprintf("%p", v)
+			case *Property: dto.Arguments[key] = fmt.Sprintf("%p", v)
+			default : dto.Arguments[key] = fmt.Sprintf("%v", v)
+		}
+	}
+	return dto
+}
+
+type GameStateDTO struct {
+	Phase PhaseType
+	FoodBank int
+	CardsInDesk int
+	PlayerCards []CardDTO
+	Players []PlayerDTO
+}
+
+func (c *Client) NewGameStateDTO(game *Game) GameStateDTO {
+	state := GameStateDTO{}
+	state.Phase = game.CurrentPhase
+	state.FoodBank = game.Food
+	state.CardsInDesk = len(game.Deck)
+	state.PlayerCards = make([]CardDTO, 0, len(c.player.Cards))
+	for _,card := range c.player.Cards {
+		state.PlayerCards = append(state.PlayerCards, NewCardDTO(card))
+	}
+	state.Players = make([]PlayerDTO, 0, game.PlayersCount)
+	game.Players.Do(func (val interface{}) {
+		state.Players = append(state.Players, NewPlayerDTO(val.(*Player)))
+	})
+	return state
+}
+
+type CardDTO struct {
+	Id string
+	ActiveProperty PropertyDTO
+	Properties []PropertyDTO
+}	
+
+func NewCardDTO(card *Card) CardDTO {
+	cardDTO := CardDTO{}
+	cardDTO.Id = fmt.Sprintf("%p", card)
+	cardDTO.ActiveProperty = NewPropertyDTO(card.ActiveProperty)
+	cardDTO.Properties = make([]PropertyDTO, 0, len(card.Properties))
+	for _,property := range card.Properties {
+		cardDTO.Properties = append(cardDTO.Properties, NewPropertyDTO(property))
+	}
+	return cardDTO
+}
+
+type PropertyDTO struct {
+	Id string
+	Traits []TraitType
+}
+
+func NewPropertyDTO(property *Property) PropertyDTO {
+	return PropertyDTO{fmt.Sprintf("%p",property), property.Traits}
+}
+
+type PlayerDTO struct {
+	Id string
+	Creatures []CreatureDTO
+}
+
+func NewPlayerDTO(player *Player) PlayerDTO {
+	playerDTO := PlayerDTO{}
+	playerDTO.Id = fmt.Sprintf("%p", player)
+	playerDTO.Creatures = make([]CreatureDTO, 0, len(player.Creatures))
+	for _,creature := range player.Creatures {
+		playerDTO.Creatures = append(playerDTO.Creatures, NewCreatureDTO(creature))
+	}
+	return playerDTO
+}
+
+type CreatureDTO struct {
+	Id string
+	Traits []TraitType
+	Cards []CardDTO
+}
+
+func NewCreatureDTO(creature *Creature) CreatureDTO {
+	creatureDTO := CreatureDTO{}
+	creatureDTO.Id = fmt.Sprintf("%p", creature)
+	creatureDTO.Cards = make([]CardDTO, 0, len(creature.Tail))
+	for _,card := range creature.Tail {
+		creatureDTO.Cards = append(creatureDTO.Cards, NewCardDTO(card))
+	}
+	creatureDTO.Traits = creature.Traits
+	return creatureDTO
+}
+
+func (c *Client) Notify(game *Game, action *Action) {
+	fmt.Printf("%#v\n", action)
+	c.ch <- NewMessageExecutedAction(NewActionDTO(action), c.NewGameStateDTO(game))
 }
 
 func (c *Client) GetChoice() int {
@@ -85,10 +219,11 @@ func (c *Client) MakeChoice(actions []*Action) *Action {
 	if len(actions) == 1 {
 		return actions[0]
 	}
-	c.Notify("Choose one action:")
-	for i, action := range actions {
-		c.Notify(fmt.Sprintf("%v) %#v", i, action))
+	actionsDTOs := make([]ActionDTO, 0, len(actions))
+	for _, action := range actions {
+		actionsDTOs = append(actionsDTOs, NewActionDTO(action))
 	}
+	c.ch <- Message{MESSAGE_CHOICES_LIST, actionsDTOs}
 	return actions[c.GetChoice()]
 }
 	

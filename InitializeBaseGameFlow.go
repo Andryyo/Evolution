@@ -77,14 +77,26 @@ func (g *Game) InitializeBaseGameFlow() {
 			FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES_PAIR, 
 			FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS_PROPERTIES)))
 			
+	g.AddFilter(&FilterAction{
+		FILTER_ACTION_EXECUTE_AFTER,
+		&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
+		nil,
+		NewActionAddFilters(
+			&FilterDeny{
+				NewANDCondition(
+					&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
+					NewConditionEqual(FILTER_SOURCE_PARAMETER_PROPERTY, InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}), //TODO : Not working because of pointers compartion
+					NewConditionEqual(FILTER_SOURCE_PARAMETER_PAIR, InstantiationOff{FILTER_SOURCE_PARAMETER_PAIR})),
+				NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
 	//Allow adding single properties in development phase
 	g.AddFilter(NewFilterAllow(
 		&ConditionPhase{PHASE_DEVELOPMENT}, 
 		nil, 
 		NewActionAddSingleProperty(
-			FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES, 
+			FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES, 
 			FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS_PROPERTIES)))			
-			
 	
 	//Deny adding single properties if
 	g.AddFilter(&FilterDeny{
@@ -92,11 +104,22 @@ func (g *Game) InitializeBaseGameFlow() {
 				&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
 				NewORCondition(
 					NewANDCondition(
+						NewConditionEqual(Accessor{FILTER_SOURCE_PARAMETER_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}, FILTER_SOURCE_PARAMETER_CURRENT_PLAYER),
+						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PARASITE}, 1)),
+					NewANDCondition(
+						&NOTCondition{NewConditionEqual(Accessor{FILTER_SOURCE_PARAMETER_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}, FILTER_SOURCE_PARAMETER_CURRENT_PLAYER)},
+						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PARASITE}, 0)),
+					NewANDCondition(
 						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_FAT_TISSUE}, 0),
 						&ConditionContains{FILTER_SOURCE_PARAMETER_CREATURE_PROPERTIES, FILTER_SOURCE_PARAMETER_PROPERTY}),
-					NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PAIR}, 1))),
-			nil,
-			})	
+					NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PAIR}, 1),
+					NewANDCondition(
+						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_SCAVENGER}, 1),
+						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_CREATURE, TRAIT_CARNIVOROUS}, 1)),
+					NewANDCondition(
+						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_CREATURE, TRAIT_SCAVENGER}, 1),
+						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_CARNIVOROUS}, 1)))),
+			nil})	
 	
 	//Deny adding pair properties is
 	g.AddFilter(&FilterDeny{

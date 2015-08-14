@@ -6,18 +6,19 @@ import (
 )
 
 type ChoiceMaker interface {
-	Notify(string)
+	Notify(game *Game, action *Action)
 	GetChoice() int
 	MakeChoice([]*Action) *Action
 	GetName() string
+	SetOwner(player *Player)
 }
 
 type ConsoleChoiceMaker struct {
 	name string
 }
 
-func (c *ConsoleChoiceMaker) Notify(s string) {
-	fmt.Println(s)
+func (c *ConsoleChoiceMaker) Notify(action *Action) {
+	fmt.Println(action.GoString())
 }
 
 func (c *ConsoleChoiceMaker) GetChoice() int {
@@ -40,9 +41,13 @@ func (c *ConsoleChoiceMaker) MakeChoice(actions []*Action) *Action {
 	if len(actions) == 1 {
 		return actions[0]
 	}
-	c.Notify("Choose one action:")
-	for i, action := range actions {
-		c.Notify(fmt.Sprintf("%v) %#v", i, action))
+	//c.Notify("Choose one action:")
+	for _, action := range actions {
+		//c.Notify(fmt.Sprintf("%v) %#v", i, action))
+		c.Notify(action)
 	}
 	return actions[c.GetChoice()]
+}
+
+func (c *ConsoleChoiceMaker) SetOwner(player *Player) {
 }

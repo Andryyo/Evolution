@@ -19,9 +19,10 @@ type Game struct {
 	Food          int  
 }
 
-func (g *Game) NotifyAll(s string) {
+func (g *Game) NotifyAll(action *Action) {
+	fmt.Printf("%#v\n", action)
 	g.Players.Do(func (val interface{}) {
-		val.(*Player).Notify(s)
+		val.(*Player).Notify(g, action)
 	})
 }
 
@@ -40,7 +41,7 @@ type Card struct {
 	Owners         []Source
 }
 
-func (c *Card) GoString() string {
+func (c Card) GoString() string {
 	propertiesCount := len(c.Properties)
 	if propertiesCount == 0 {
 		return "()"
@@ -104,14 +105,14 @@ func (c *Property) ContainsTrait(trait TraitType) bool {
 	return false
 }
 
-func (c *Property) GoString() string {
+func (c Property) GoString() string {
 	len := len(c.Traits)
 	if len == 0 {
 		return "()"
 	}
-	result := "(" + c.Traits[0].GoString()
+	result := "(" + string(c.Traits[0])
 	for i := 1; i<len;i++ {
-		result += "/" + c.Traits[i].GoString()
+		result += "/" + string(c.Traits[i])
 	}
 	result += ")"
 	return result
@@ -124,15 +125,15 @@ type Creature struct {
 	Traits []TraitType
 }
 
-func (c *Creature) GoString() string {
+func (c Creature) GoString() string {
 	traits := c.GetTraits()
 	len := len(traits)
 	if len == 0 {
 		return "(Creature)"
 	}
-	result := "(Creature : " + traits[0].GoString()
+	result := "(Creature : " + string(traits[0])
 	for i := 1; i<len;i++ {
-		result += "/" + traits[i].GoString()
+		result += "/" + string(traits[i])
 	}
 	result += "))"
 	return result
@@ -311,10 +312,11 @@ func (g *Game) InitializeDeck() {
 func (g *Game) InitializePlayers(players ...ChoiceMaker) {
 	g.Players = ring.New(len(players))
 	g.PlayersCount = len(players)
-	for _, player := range players {
-		player := &Player{Name: player.GetName(), ChoiceMaker: player}
+	for _, choiceMaker := range players {
+		player := &Player{Name: choiceMaker.GetName(), ChoiceMaker: choiceMaker}
+		choiceMaker.SetOwner(player)
 		g.Players.Value = player
-		g.TakeCards(player, 6)
+		g.TakeCards(player, 24)
 		g.Players = g.Players.Next()
 	}
 	g.CurrentPlayer = g.Players.Value.(*Player)
@@ -432,8 +434,8 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 				}
 			}
 		}
-		g.NotifyAll(fmt.Sprintf("Executing action: %#v", action))
 		action.Execute(g)
+		g.NotifyAll(action)
 		for _, filter := range g.Filters {
 			if filter.GetType() == FILTER_ACTION_EXECUTE_AFTER && filter.CheckCondition(g, action) {
 				stack.PushBack(filter.InstantiateFilterPrototype(g, action, true).(*FilterAction).GetAction())

@@ -4,7 +4,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"strconv"
+	//"strconv"
 )
 
 type Action struct {
@@ -12,7 +12,7 @@ type Action struct {
 	Arguments map[ArgumentName]Source
 }
 
-func (a *Action) GoString() string {
+func (a Action) GoString() string {
 	result := ""
 	switch a.Type {
 	case ACTION_ADD_CREATURE:
@@ -99,16 +99,16 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_START_TURN:
 		break
 	case ACTION_SELECT_FROM_AVAILABLE_ACTIONS:
-		game.NotifyAll("Cards in desk: " + strconv.Itoa(len(game.Deck)))
-		game.NotifyAll("Food in bank: " + strconv.Itoa(game.Food))
-		game.NotifyAll("Creatures:")
-		game.Players.Do(func (val interface{}) {
+		//game.NotifyAll("Cards in desk: " + strconv.Itoa(len(game.Deck)))
+		//game.NotifyAll("Food in bank: " + strconv.Itoa(game.Food))
+		//game.NotifyAll("Creatures:")
+		/*game.Players.Do(func (val interface{}) {
 			player := val.(*Player)
 			game.NotifyAll(fmt.Sprintf("%#v(%#v):",player.Name, player.Traits))
 			for i, creature := range player.Creatures {
 				game.NotifyAll(fmt.Sprintf("%v) %#v", i, creature))
 			}
-		})
+		})*/
 		player := game.CurrentPlayer
 		actions := game.GetAlowedActions()
 		action := player.MakeChoice(actions)
