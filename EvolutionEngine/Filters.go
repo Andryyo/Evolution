@@ -1,5 +1,5 @@
 // Filters
-package main
+package EvolutionEngine
 
 import "fmt"
 
@@ -36,11 +36,6 @@ type Accessor struct {
 
 func (t TraitsCount) GoString() string {
 	return fmt.Sprintf("%#v count of %#v", t.traits, t.source)
-}
-
-type PairCreauture struct {
-	property Source
-	creature Creature
 }
 
 type OneOf struct {

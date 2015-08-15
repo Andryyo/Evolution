@@ -1,5 +1,5 @@
 // InitializeBaseGameFlow
-package main
+package EvolutionEngine
 
 func (g *Game) InitializeBaseGameFlow() {
 	

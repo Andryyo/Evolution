@@ -1,5 +1,5 @@
 // Constants
-package main
+package EvolutionEngine
 
 type FilterType int
 
@@ -102,7 +102,7 @@ const (
 	TRAIT_PASS TraitType = "Pass"
 	TRAIT_USED = "Used"
 	TRAIT_TOOK_FOOD = "Food"
-	TRAIT_SHART_VISION = "Sharp vision"
+	TRAIT_SHARP_VISION = "Sharp vision"
 	TRAIT_CAMOUFLAGE = "Camouflage"
 	TRAIT_BURROWING = "Burowing"
 	TRAIT_FED = "Fed"

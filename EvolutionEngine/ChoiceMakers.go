@@ -1,5 +1,5 @@
 // ConsoleChoiceMaker
-package main
+package EvolutionEngine
 
 import (
 	"fmt"

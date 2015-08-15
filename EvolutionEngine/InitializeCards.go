@@ -1,5 +1,5 @@
 // InitializeCards
-package main
+package EvolutionEngine
 
 
 func (g *Game) InitializeCardsFilters() {
@@ -41,7 +41,7 @@ func (g *Game) InitializeCardsFilters() {
 			NewANDCondition(
 				&ConditionActionType{ACTION_ATTACK},
 				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_CAMOUFLAGE}, 0),
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_SHART_VISION}, 1)),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_SHARP_VISION}, 1)),
 			nil})
 	//burrowing
 	g.Filters = append(g.Filters,

@@ -1,11 +1,12 @@
 // Server
-package main
+package EvolutionServer
 
 import (
 	"net/http"
 	"golang.org/x/net/websocket"
 	"log"
 	"fmt"
+	"github.com/Andryyo/Evolution/EvolutionEngine"
 )
 
 const channelBufSize = 100
@@ -91,11 +92,11 @@ func (s *Server) Listen() {
 		select {
 			case <-s.startGame:
 				log.Println("Starting game")
-				players := make([]ChoiceMaker, 0, len(s.clients))
+				players := make([]EvolutionEngine.ChoiceMaker, 0, len(s.clients))
 				for _, client := range s.clients {
 					players = append(players, client)
 				}
-				NewGame(players...)
+				EvolutionEngine.NewGame(players...)
 			case c := <-s.addCh:
 				log.Println("Added new client")
 				s.clients[c.id] = c

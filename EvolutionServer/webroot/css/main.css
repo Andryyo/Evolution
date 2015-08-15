@@ -1,0 +1,16 @@
+html, body, .container, .col-md-4 {
+  height: 100%;
+}
+
+.container-fluid {
+ height: 100%;
+}
+
+textarea.form-control {
+  height: calc(100% - 60px);
+  resize: none;
+}
+
+#game_holder {
+ width: 800px;
+}

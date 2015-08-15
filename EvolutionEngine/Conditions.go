@@ -1,5 +1,5 @@
 // Conditions
-package main
+package EvolutionEngine
 
 import (
 	"fmt"
@@ -17,8 +17,8 @@ type ANDCondition struct {
 	conditions []Condition
 }
 
-func NewANDCondition(condifions ...Condition) *ANDCondition {
-	return &ANDCondition{condifions}
+func NewANDCondition(conditions ...Condition) *ANDCondition {
+	return &ANDCondition{conditions}
 }
 
 func (c *ANDCondition) CheckCondition(game *Game, action *Action) bool {
@@ -66,8 +66,8 @@ func (c *ORCondition) CheckCondition(game *Game, action *Action) bool {
 	return false
 }
 
-func NewORCondition(condifions ...Condition) *ORCondition {
-	return &ORCondition{condifions}
+func NewORCondition(conditions ...Condition) *ORCondition {
+	return &ORCondition{conditions}
 }
 
 func (c ORCondition) GoString() string {

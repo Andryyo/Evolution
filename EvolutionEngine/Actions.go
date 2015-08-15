@@ -1,5 +1,5 @@
 // Actions
-package main
+package EvolutionEngine
 
 import (
 	"fmt"
@@ -110,7 +110,7 @@ func (a *Action) Execute(game *Game) {
 			}
 		})*/
 		player := game.CurrentPlayer
-		actions := game.GetAlowedActions()
+		actions := game.GetAllowedActions()
 		action := player.MakeChoice(actions)
 		if action != nil {
 			game.ExecuteAction(action)

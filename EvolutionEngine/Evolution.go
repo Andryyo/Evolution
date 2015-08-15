@@ -1,11 +1,12 @@
 // Evolution
-package main
+package EvolutionEngine
 
 import (
-	"container/list"
 	"container/ring"
 	"fmt"
 	"math/rand"
+	"log"
+	"container/list"
 	"time"
 )
 
@@ -20,7 +21,7 @@ type Game struct {
 }
 
 func (g *Game) NotifyAll(action *Action) {
-	fmt.Printf("%#v\n", action)
+	log.Printf("%#v\n", action)
 	g.Players.Do(func (val interface{}) {
 		val.(*Player).Notify(g, action)
 	})
@@ -240,9 +241,13 @@ func (p *Player) RemoveCreature(creature *Creature) {
 
 func NewGame(players ...ChoiceMaker) *Game {
 	game := new(Game)
+	log.Println("Initializing cards filters")
 	game.InitializeCardsFilters()
+	log.Println("Initializing base game flow")
 	game.InitializeBaseGameFlow()
+	log.Println("Initializing deck")
 	game.InitializeDeck()
+	log.Println("Initializing players")
 	game.InitializePlayers(players...)
 	game.ExecuteAction(NewActionNewPhase(PHASE_DEVELOPMENT))
 	return game
@@ -267,8 +272,8 @@ func (g *Game) TakeCard(player *Player) {
 func (g *Game) InitializeDeck() {
 	camouflage := &Property{Traits : []TraitType {TRAIT_CAMOUFLAGE}}
 	burrowing := &Property{Traits : []TraitType {TRAIT_BURROWING}}
-	sharpVision := &Property{Traits : []TraitType {TRAIT_SHART_VISION}}
-	symbiosys := &Property{Traits : []TraitType {TRAIT_PAIR, TRAIT_SIMBIOSYS}}
+	sharpVision := &Property{Traits : []TraitType {TRAIT_SHARP_VISION}}
+	simbiosys := &Property{Traits : []TraitType {TRAIT_PAIR, TRAIT_SIMBIOSYS}}
 	piracy := &Property{Traits : []TraitType {TRAIT_PIRACY}}
 	grazing := &Property{Traits : []TraitType {TRAIT_GRAZING}}
 	tailLoss := &Property{Traits : []TraitType {TRAIT_TAIL_LOSS}}
@@ -289,7 +294,7 @@ func (g *Game) InitializeDeck() {
 	g.AddCard(4, camouflage)
 	g.AddCard(4, burrowing)
 	g.AddCard(4, sharpVision)
-	g.AddCard(4, symbiosys)
+	g.AddCard(4, simbiosys)
 	g.AddCard(4, piracy)
 	g.AddCard(4, grazing)
 	g.AddCard(4, tailLoss)
@@ -368,7 +373,7 @@ func (g *Game) ActionDenied(action *Action) (result bool) {
 	return false
 }
 
-func (g *Game) GetAlowedActions() []*Action {
+func (g *Game) GetAllowedActions() []*Action {
 	var result []*Action
 	for _, filter := range g.Filters {
 		if filter.GetType() == FILTER_ALLOW && filter.CheckCondition(g, nil) {
@@ -417,7 +422,7 @@ func (g *Game) ExecuteAction(rawAction *Action) {
 			}
 			if filter.GetType() == FILTER_ACTION_EXECUTE_BEFORE && filter.CheckCondition(g, action) {
 				g.ExecuteAction(filter.InstantiateFilterPrototype(g, action, true).(*FilterAction).GetAction())
-			} 
+			}
 		}
 		if replaced {
 			continue

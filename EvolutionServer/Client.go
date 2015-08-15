@@ -1,5 +1,5 @@
 // Client
-package main
+package EvolutionServer
 
 import (
 	"golang.org/x/net/websocket"
@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"fmt"
 	"log"
+	"github.com/Andryyo/Evolution/EvolutionEngine"
 )
 
 type MessageType int
@@ -41,7 +42,7 @@ type Client struct {
 	server *Server
 	ch chan Message
 	doneCh chan bool
-	player *Player
+	player *EvolutionEngine.Player
 }
 
 func NewClient(ws *websocket.Conn, server *Server) *Client {
@@ -52,7 +53,7 @@ func NewClient(ws *websocket.Conn, server *Server) *Client {
 	return &Client{maxId, "", ws, server, ch, doneCh, nil}
 }
 
-func (c *Client) SetOwner(player *Player) {
+func (c *Client) SetOwner(player *EvolutionEngine.Player) {
 	c.player = player
 }
 
@@ -96,18 +97,18 @@ func (c *Client) listenWrite() {
 }
 
 type ActionDTO struct {
-	Type ActionType
-	Arguments map[ArgumentName]string
+	Type EvolutionEngine.ActionType
+	Arguments map[EvolutionEngine.ArgumentName]string
 }
 
-func NewActionDTO(action *Action) ActionDTO{
-	dto := ActionDTO{action.Type, map[ArgumentName]string{}}
+func NewActionDTO(action *EvolutionEngine.Action) ActionDTO{
+	dto := ActionDTO{action.Type, map[EvolutionEngine.ArgumentName]string{}}
 	for key,value := range action.Arguments {
 		switch v := value.(type) {
-			case *Player: dto.Arguments[key] = fmt.Sprintf("%p",v)
-			case *Creature: dto.Arguments[key] = fmt.Sprintf("%p", v)
-			case *Card: dto.Arguments[key] = fmt.Sprintf("%p", v)
-			case *Property: dto.Arguments[key] = fmt.Sprintf("%p", v)
+			case *EvolutionEngine.Player: dto.Arguments[key] = fmt.Sprintf("%p",v)
+			case *EvolutionEngine.Creature: dto.Arguments[key] = fmt.Sprintf("%p", v)
+			case *EvolutionEngine.Card: dto.Arguments[key] = fmt.Sprintf("%p", v)
+			case *EvolutionEngine.Property: dto.Arguments[key] = fmt.Sprintf("%p", v)
 			default : dto.Arguments[key] = fmt.Sprintf("%v", v)
 		}
 	}
@@ -115,14 +116,14 @@ func NewActionDTO(action *Action) ActionDTO{
 }
 
 type GameStateDTO struct {
-	Phase PhaseType
+	Phase EvolutionEngine.PhaseType
 	FoodBank int
 	CardsInDesk int
 	PlayerCards []CardDTO
 	Players []PlayerDTO
 }
 
-func (c *Client) NewGameStateDTO(game *Game) GameStateDTO {
+func (c *Client) NewGameStateDTO(game *EvolutionEngine.Game) GameStateDTO {
 	state := GameStateDTO{}
 	state.Phase = game.CurrentPhase
 	state.FoodBank = game.Food
@@ -133,7 +134,7 @@ func (c *Client) NewGameStateDTO(game *Game) GameStateDTO {
 	}
 	state.Players = make([]PlayerDTO, 0, game.PlayersCount)
 	game.Players.Do(func (val interface{}) {
-		state.Players = append(state.Players, NewPlayerDTO(val.(*Player)))
+		state.Players = append(state.Players, NewPlayerDTO(val.(*EvolutionEngine.Player)))
 	})
 	return state
 }
@@ -144,7 +145,7 @@ type CardDTO struct {
 	Properties []PropertyDTO
 }	
 
-func NewCardDTO(card *Card) CardDTO {
+func NewCardDTO(card *EvolutionEngine.Card) CardDTO {
 	cardDTO := CardDTO{}
 	cardDTO.Id = fmt.Sprintf("%p", card)
 	cardDTO.ActiveProperty = NewPropertyDTO(card.ActiveProperty)
@@ -157,10 +158,10 @@ func NewCardDTO(card *Card) CardDTO {
 
 type PropertyDTO struct {
 	Id string
-	Traits []TraitType
+	Traits []EvolutionEngine.TraitType
 }
 
-func NewPropertyDTO(property *Property) PropertyDTO {
+func NewPropertyDTO(property *EvolutionEngine.Property) PropertyDTO {
 	return PropertyDTO{fmt.Sprintf("%p",property), property.Traits}
 }
 
@@ -169,7 +170,7 @@ type PlayerDTO struct {
 	Creatures []CreatureDTO
 }
 
-func NewPlayerDTO(player *Player) PlayerDTO {
+func NewPlayerDTO(player *EvolutionEngine.Player) PlayerDTO {
 	playerDTO := PlayerDTO{}
 	playerDTO.Id = fmt.Sprintf("%p", player)
 	playerDTO.Creatures = make([]CreatureDTO, 0, len(player.Creatures))
@@ -181,11 +182,11 @@ func NewPlayerDTO(player *Player) PlayerDTO {
 
 type CreatureDTO struct {
 	Id string
-	Traits []TraitType
+	Traits []EvolutionEngine.TraitType
 	Cards []CardDTO
 }
 
-func NewCreatureDTO(creature *Creature) CreatureDTO {
+func NewCreatureDTO(creature *EvolutionEngine.Creature) CreatureDTO {
 	creatureDTO := CreatureDTO{}
 	creatureDTO.Id = fmt.Sprintf("%p", creature)
 	creatureDTO.Cards = make([]CardDTO, 0, len(creature.Tail))
@@ -196,8 +197,7 @@ func NewCreatureDTO(creature *Creature) CreatureDTO {
 	return creatureDTO
 }
 
-func (c *Client) Notify(game *Game, action *Action) {
-	fmt.Printf("%#v\n", action)
+func (c *Client) Notify(game *EvolutionEngine.Game, action *EvolutionEngine.Action) {
 	c.ch <- NewMessageExecutedAction(NewActionDTO(action), c.NewGameStateDTO(game))
 }
 
@@ -212,7 +212,7 @@ func (c *Client) GetChoice() int {
 	return num
 }
 
-func (c *Client) MakeChoice(actions []*Action) *Action {
+func (c *Client) MakeChoice(actions []*EvolutionEngine.Action) *EvolutionEngine.Action {
 	if len(actions) == 0 {
 		return nil
 	}
