@@ -273,7 +273,7 @@ func (g *Game) InitializeDeck() {
 	camouflage := &Property{Traits : []TraitType {TRAIT_CAMOUFLAGE}}
 	burrowing := &Property{Traits : []TraitType {TRAIT_BURROWING}}
 	sharpVision := &Property{Traits : []TraitType {TRAIT_SHARP_VISION}}
-	simbiosys := &Property{Traits : []TraitType {TRAIT_PAIR, TRAIT_SIMBIOSYS}}
+	symbiosis := &Property{Traits : []TraitType {TRAIT_PAIR, TRAIT_SYMBIOSIS}}
 	piracy := &Property{Traits : []TraitType {TRAIT_PIRACY}}
 	grazing := &Property{Traits : []TraitType {TRAIT_GRAZING}}
 	tailLoss := &Property{Traits : []TraitType {TRAIT_TAIL_LOSS}}
@@ -291,16 +291,16 @@ func (g *Game) InitializeDeck() {
 	highBodyWeight := &Property{Traits : []TraitType {TRAIT_HIGH_BODY_WEIGHT, TRAIT_REQUIRE_FOOD}}
 	
 	g.Deck = make([]*Card, 0, 84)
-	g.AddCard(4, camouflage)
-	g.AddCard(4, burrowing)
-	g.AddCard(4, sharpVision)
-	g.AddCard(4, simbiosys)
+	g.AddCard(4, camouflage, fatTissue)
+	g.AddCard(4, burrowing, fatTissue)
+	g.AddCard(4, sharpVision, fatTissue)
+	g.AddCard(4, symbiosis)
 	g.AddCard(4, piracy)
-	g.AddCard(4, grazing)
+	g.AddCard(4, grazing, fatTissue)
 	g.AddCard(4, tailLoss)
-	g.AddCard(4, hibernation)
-	g.AddCard(4, poisonous)
-	g.AddCard(4, communication)
+	g.AddCard(4, hibernation, carnivorous)
+	g.AddCard(4, poisonous, carnivorous)
+	g.AddCard(4, communication, carnivorous)
 	g.AddCard(4, scavenger)
 	g.AddCard(4, running)
 	g.AddCard(4, mimicry)
@@ -321,7 +321,7 @@ func (g *Game) InitializePlayers(players ...ChoiceMaker) {
 		player := &Player{Name: choiceMaker.GetName(), ChoiceMaker: choiceMaker}
 		choiceMaker.SetOwner(player)
 		g.Players.Value = player
-		g.TakeCards(player, 24)
+		g.TakeCards(player, 6)
 		g.Players = g.Players.Next()
 	}
 	g.CurrentPlayer = g.Players.Value.(*Player)

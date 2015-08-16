@@ -29,7 +29,7 @@ func (g *Game) InitializeBaseGameFlow() {
 				NewORCondition(&ConditionPhase{PHASE_DEVELOPMENT}, &ConditionPhase{PHASE_FEEDING}),
 				&ConditionActionType{ACTION_START_TURN}), 
 			nil,
-			NewActionSelectFromAvailableActions()})	
+			NewActionSelectFromAvailableActions()})
 	
 	//In feeding phase player make turns, until pass
 	g.AddFilter(&FilterAction{

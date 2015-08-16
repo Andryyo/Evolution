@@ -57,7 +57,7 @@ func (g *Game) InitializeCardsFilters() {
 			FILTER_ACTION_EXECUTE_AFTER,
 			NewANDCondition(
 				&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_SIMBIOSYS}, 1)),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_SYMBIOSIS}, 1)),
 			nil,
 			NewActionAddFilters(
 				&FilterDeny{

@@ -65,8 +65,8 @@ func (a Action) GoString() string {
 		result += fmt.Sprintf("Destroy one food in bank")
 	case ACTION_ATTACK:
 		result += fmt.Sprintf("Attack %#v with %#v", a.Arguments[PARAMETER_TARGET_CREATURE], a.Arguments[PARAMETER_SOURCE_CREATURE])
-	case ACTION_SELECT_FROM_AVAILABLE_ACTIONS:
-		result += fmt.Sprint("Player selecting action")
+	//case ACTION_SELECT_FROM_AVAILABLE_ACTIONS:
+	//	result += fmt.Sprint("Player selecting action")
 	case ACTION_GAIN_FOOD:
 		result += fmt.Sprintf("Creature %#v gain food", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_GAIN_ADDITIONAL_FOOD:
