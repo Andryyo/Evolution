@@ -119,6 +119,7 @@ type GameStateDTO struct {
 	Phase EvolutionEngine.PhaseType
 	FoodBank int
 	CardsInDesk int
+	CurrentPlayerId string
 	PlayerCards []CardDTO
 	Players []PlayerDTO
 }
@@ -129,6 +130,7 @@ func (c *Client) NewGameStateDTO(game *EvolutionEngine.Game) GameStateDTO {
 	state.FoodBank = game.Food
 	state.CardsInDesk = len(game.Deck)
 	state.PlayerCards = make([]CardDTO, 0, len(c.player.Cards))
+	state.CurrentPlayerId = fmt.Sprintf("%p", game.CurrentPlayer)
 	for _,card := range c.player.Cards {
 		state.PlayerCards = append(state.PlayerCards, NewCardDTO(card))
 	}
