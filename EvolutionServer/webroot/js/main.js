@@ -10,6 +10,7 @@ var chosenSprite = null
 var availableActions = null;
 var currentPlayerId;
 var playerId;
+var selectionRect;
 
 function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
@@ -228,6 +229,10 @@ function cardDragStart(card) {
 }
 
 function cardDragStop(card) {
+	if (selectionRect != null) {
+		selectionRect.destroy();
+		selectionRect = null;
+	}
 	if (Phaser.Rectangle.intersects(card.getBounds(),mainArea)) {
 		for (var i in players.children) {
 			for (var j in players.getChildAt(i).children) {
@@ -252,6 +257,31 @@ function cardDragStop(card) {
 }
 
 function cardDragUpdate(card) {
+	if (Phaser.Rectangle.intersects(card.getBounds(),mainArea)) {
+		for (var i in players.children) {
+			for (var j in players.getChildAt(i).children) {
+				var creature = players.getChildAt(i).getChildAt(j);
+				if (Phaser.Rectangle.intersects(card.getBounds(), creature.getBounds())) {
+					if (selectionRect == null) {
+						selectionRect = game.add.graphics();
+						//selectionRect.drawRect(-cardWidth/4-10, -cardHeight/4-10, cardWidth/2+20, cardHeight/2+20);
+						selectionRect.lineColor = "#ffffff";
+						selectionRect.lineStyle(2, 0x0000FF, 1);
+						selectionRect.drawRect(-10, -10, cardWidth/2+20, cardHeight/2+20);
+					}
+					selectionRect.graphicsData[0].width = creature.getBounds().width+20;
+					selectionRect.graphicsData[0].height = creature.getBounds().height+20;
+					selectionRect.x = creature.getBounds().x
+					selectionRect.y = creature.getBounds().y
+					return;
+				}
+			}
+		}
+	}
+	if (selectionRect != null) {
+		selectionRect.destroy();
+		selectionRect = null;
+	}
 }
 
 Card = function(cardDTO, x, y) {
