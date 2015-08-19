@@ -1,12 +1,12 @@
-var game = new Phaser.Game(1366, 768, Phaser.AUTO, 'game_holder', { preload: preload, create: create, update: update, render: render});
+var game = new Phaser.Game(1000, 800, Phaser.AUTO, 'game_holder', { preload: preload, create: create, update: update, render: render});
+var gameOverlay;
 var cardHeight = 254;
 var cardWidth = 182;
 var cardEdgeWidth = 35;
-var handArea = new Phaser.Rectangle(0, 768-cardHeight, 1366, cardHeight);
-var mainArea = new Phaser.Rectangle(0, 0, 1366, 768-cardHeight);
+var handArea;
+var mainArea;
 var hand = null;
 var players = null;
-var chosenSprite = null
 var availableActions = null;
 var currentPlayerId;
 var playerId;
@@ -15,10 +15,18 @@ var selectionRect;
 function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
 	game.load.image('back','assets/back.png');
+	game.load.image('table','assets/bg_texture___wood_by_nortago.jpg');
 }
 
 function create() {
+	game.add.tileSprite(0, 0, game.width, game.height, 'table');
+	handArea = new Phaser.Rectangle(10, game.height-cardHeight+10, game.width-20, cardHeight-20);
+	mainArea = new Phaser.Rectangle(10, 10, game.width-20, game.height-cardHeight-10);
 	game.physics.startSystem(Phaser.Physics.ARCADE);
+	gameOverlay = game.add.graphics(0, 0);
+	gameOverlay.lineStyle(2, 0xFFFFFF, 1);
+	gameOverlay.drawRoundedRect(mainArea.x, mainArea.y, mainArea.width, mainArea.height, 3);
+	gameOverlay.drawRoundedRect(handArea.x, handArea.y, handArea.width, handArea.height, 3);
 	hand = game.add.group();
 	hand.x = handArea.x;
 	hand.y = handArea.y;
@@ -43,9 +51,6 @@ function update() {
 }
 
 function render() {
-	if (chosenSprite != null) {
-		game.debug.spriteInputInfo(chosenSprite, 32, 32);
-	}
 }
 
 var socket = new WebSocket("ws://127.0.0.1:8081/client");
@@ -126,12 +131,12 @@ function updateHand(handDTO) {
 	var y = handArea.halfHeight;
 	var startX = (handArea.width-(cardWidth*handDTO.length/2*3/2))/2;
 	if (startX < 0) {
-		startX = 0;
+		startX = cardWidth/4;
 	}
 	var offset = (handArea.width-startX*2)/(handDTO.length);
 	
 	for (var i in handDTO) {
-		hand.add(new Card(handDTO[i], startX + i*offset, y));
+		hand.add(new Card(handDTO[i], startX + (+i + +0.5)*offset, y));
 	}
 }
 
@@ -139,7 +144,7 @@ function updatePlayers(playersDTO) {
 	players.removeAll();
 	var startAngle = 180;
 	var deltaAngle = 360/playersDTO.length;
-	var radius = mainArea.halfHeight - cardHeight/4;
+	var radius = mainArea.halfHeight - cardHeight/2;
 	for (var i in playersDTO) {
 		if (playersDTO[i].Id == playerId) {
 			var playerIndex = i;
@@ -168,7 +173,7 @@ PlayerCreatures = function(playerDTO, x, y, angle) {
 	this.angle = angle;
 	var totalCreatureWidthHalf = cardWidth/2 * playerDTO.Creatures.length/2;
 	for (var i in playerDTO.Creatures) {
-		var creature = new Creature(playerDTO.Creatures[i], (+i + +0.5)*cardWidth/2-totalCreatureWidthHalf, 0);
+		var creature = new Creature(playerDTO.Creatures[i], (+i + +1)*cardWidth/2-totalCreatureWidthHalf, 0);
 		game.add.existing(creature);
 		this.add(creature);
 	}
@@ -183,11 +188,11 @@ Creature = function(creatureDTO, x, y) {
 	this.y = y;
 	this.id = creatureDTO.Id;
 	for (var i in creatureDTO.Cards) {
-		var card = new Card(creatureDTO.Cards[i], 0, cardEdgeWidth/2 * i);
+		var card = new Card(creatureDTO.Cards[i], -cardWidth/4, cardEdgeWidth/2 * i);
 		game.add.existing(card);
 		this.add(card);
 	}
-	var back = new Phaser.Sprite(game, 0, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
+	var back = new Phaser.Sprite(game, -cardWidth/4, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
 	back.anchor.setTo(0.5, 0.5);
     back.scale.setTo(0.5, 0.5);
 	game.add.existing(back);
@@ -198,7 +203,6 @@ Creature.prototype = Object.create(Phaser.Group.prototype);
 Creature.prototype.constructor = Creature;
 
 function cardOver(card, pointer) {
-	chosenSprite = card;
 	card.bringToTop();
 }
 
@@ -245,6 +249,9 @@ function cardDragStop(card) {
 					}
 					if (executeAddPropertyAction(creature.id, property.Id)) {
 						return;
+					} else {
+						card.position = card.input.dragStartPoint.clone();
+						return;
 					}
 				}
 			}
@@ -264,15 +271,14 @@ function cardDragUpdate(card) {
 				if (Phaser.Rectangle.intersects(card.getBounds(), creature.getBounds())) {
 					if (selectionRect == null) {
 						selectionRect = game.add.graphics();
-						//selectionRect.drawRect(-cardWidth/4-10, -cardHeight/4-10, cardWidth/2+20, cardHeight/2+20);
-						selectionRect.lineColor = "#ffffff";
-						selectionRect.lineStyle(2, 0x0000FF, 1);
-						selectionRect.drawRect(-10, -10, cardWidth/2+20, cardHeight/2+20);
+						selectionRect.lineStyle(2, 0xFFFFFF, 1);
+						selectionRect.drawRoundedRect(-10, -10, cardWidth/2+20, cardHeight/2+20, 3);
 					}
+ 					selectionRect.rotation = creature.worldRotation;
 					selectionRect.graphicsData[0].width = creature.getBounds().width+20;
 					selectionRect.graphicsData[0].height = creature.getBounds().height+20;
-					selectionRect.x = creature.getBounds().x
-					selectionRect.y = creature.getBounds().y
+					selectionRect.x = creature.getBounds().x;
+					selectionRect.y = creature.getBounds().y;
 					return;
 				}
 			}

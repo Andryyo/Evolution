@@ -138,7 +138,7 @@ func (a *Action) Execute(game *Game) {
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
 		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
 		card := property.ContainingCard
-		creature.Owner.RemoveCard(card)
+		card.Owners[0].(*Player).RemoveCard(card)
 		card.ActiveProperty = property
 		creature.Tail = append(creature.Tail, card)
 		card.Owners = []Source{creature}

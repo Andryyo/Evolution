@@ -264,7 +264,9 @@ func (g *Game) TakeCard(player *Player) {
 	if deckLen == 0 {
 		return
 	}
-	player.Cards = append(player.Cards, g.Deck[deckLen-1])
+	card := g.Deck[deckLen-1]
+	card.Owners = []Source{player}
+	player.Cards = append(player.Cards, card)
 	player.Cards[len(player.Cards)-1].Owners = []Source {player}
 	g.Deck = g.Deck[:deckLen-1]
 }
