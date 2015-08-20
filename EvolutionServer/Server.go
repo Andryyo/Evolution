@@ -17,10 +17,10 @@ type Server struct {
 	clients   map[int]*Client
 	addCh     chan *Client
 	delCh     chan *Client
-	sendAllCh chan string
 	doneCh    chan bool
 	startGame chan bool
 	errCh     chan error
+	game	  *EvolutionEngine.Game
 }
 
 func NewServer () *Server {
@@ -28,7 +28,6 @@ func NewServer () *Server {
 	clients := make(map[int]*Client)
 	addCh := make(chan *Client)
 	delCh := make(chan *Client)
-	sendAllCh := make(chan string)
 	doneCh := make(chan bool)
 	startGame := make(chan bool)
 	errCh := make(chan error)
@@ -38,10 +37,10 @@ func NewServer () *Server {
 		clients,
 		addCh,
 		delCh,
-		sendAllCh,
 		doneCh,
 		startGame,
 		errCh,
+		nil,
 	}
 }
 
@@ -87,7 +86,7 @@ func (s *Server) Listen() {
 			}
 		}
 	}()
-	http.Handle("/client", websocket.Handler(onConnected))
+	http.Handle("/connect", websocket.Handler(onConnected))
 	for {
 		select {
 			case <-s.startGame:
@@ -96,10 +95,16 @@ func (s *Server) Listen() {
 				for _, client := range s.clients {
 					players = append(players, client)
 				}
-				EvolutionEngine.NewGame(players...)
+				if s.game == nil {
+					s.game = EvolutionEngine.NewGame(players...)
+				} 
+				go s.game.Start()
 			case c := <-s.addCh:
 				log.Println("Added new client")
 				s.clients[c.id] = c
+				if (s.game != nil) {
+					s.game.AddObserver(c)
+				}
 			case c := <-s.delCh:
 				log.Println("Delete client")
 				delete(s.clients, c.id)

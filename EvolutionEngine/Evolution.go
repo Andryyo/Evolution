@@ -12,6 +12,7 @@ import (
 
 type Game struct {
 	Players       *ring.Ring
+	Observers	  []Observer
 	PlayersCount	int
 	Deck          []*Card
 	Filters       []Filter
@@ -25,6 +26,26 @@ func (g *Game) NotifyAll(action *Action) {
 	g.Players.Do(func (val interface{}) {
 		val.(*Player).Notify(g, action)
 	})
+	for _,observer := range g.Observers {
+		observer.Notify(g, action)
+	}
+}
+
+func (g *Game) AddObserver(observer Observer) {
+	g.Observers = append(g.Observers, observer)
+}
+
+func (g *Game) RemoveObserver(observer Observer) {
+	for i, o := range g.Observers {
+		if o == observer {
+			g.Observers = append(g.Observers[:i], g.Observers[i+1:]...)
+			return
+		}
+	}
+}
+
+type Observer interface  {
+	Notify(game *Game, action *Action)
 }
 
 type WithTraits interface {
@@ -249,8 +270,11 @@ func NewGame(players ...ChoiceMaker) *Game {
 	game.InitializeDeck()
 	log.Println("Initializing players")
 	game.InitializePlayers(players...)
-	game.ExecuteAction(NewActionNewPhase(PHASE_DEVELOPMENT))
 	return game
+}
+
+func (g *Game) Start() {
+	g.ExecuteAction(NewActionNewPhase(PHASE_DEVELOPMENT))
 }
 
 func (g *Game) TakeCards(player *Player, count int) {

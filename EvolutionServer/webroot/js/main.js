@@ -101,7 +101,7 @@ function update() {
 function render() {
 }
 
-var socket = new WebSocket("ws://127.0.0.1:8081/client");
+var socket = new WebSocket("ws://127.0.0.1:8081/connect");
 
 socket.onopen = function() {
 	var textArea = document.getElementById("log");
@@ -211,9 +211,10 @@ function updatePlayers(playersDTO) {
 	var startAngle = 180;
 	var deltaAngle = 360/playersDTO.length;
 	var radius = mainArea.halfHeight - cardHeight/2;
+	var playerIndex = 0;
 	for (var i in playersDTO) {
 		if (playersDTO[i].Id == playerId) {
-			var playerIndex = i;
+			playerIndex = i;
 			break;
 		}
 	}
