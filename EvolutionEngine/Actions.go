@@ -265,7 +265,11 @@ func (a *Action) Execute(game *Game) {
 		cardsCounts := make(map[*Player]int)
 		game.Players.Do(func (val interface{}) {
 			player := val.(*Player)
-			cardsCounts[player] = len(player.Creatures) + 1
+			if (len(player.Creatures) == 0 && len(player.Cards) == 0) {
+				cardsCounts[player] = 6;
+			} else {
+				cardsCounts[player] = len(player.Creatures) + 1
+			}
 		})
 		for len(cardsCounts) != 0 {
 			for player,cardsCount := range cardsCounts {

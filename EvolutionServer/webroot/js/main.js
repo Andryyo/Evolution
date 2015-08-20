@@ -3,8 +3,11 @@ var gameOverlay;
 var cardHeight = 254;
 var cardWidth = 182;
 var cardEdgeWidth = 35;
+var controlAreaWidth = 170;
 var handArea;
 var mainArea;
+var controlArea;
+var foodBank;
 var hand = null;
 var players = null;
 var availableActions = null;
@@ -16,22 +19,66 @@ function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
 	game.load.image('back','assets/back.png');
 	game.load.image('table','assets/bg_texture___wood_by_nortago.jpg');
+	game.load.image('pass','assets/pass.png');
+	game.load.image('end turn', 'assets/End turn.png');
 }
 
 function create() {
 	game.add.tileSprite(0, 0, game.width, game.height, 'table');
-	handArea = new Phaser.Rectangle(10, game.height-cardHeight+10, game.width-20, cardHeight-20);
 	mainArea = new Phaser.Rectangle(10, 10, game.width-20, game.height-cardHeight-10);
+	handArea = new Phaser.Rectangle(10, game.height-cardHeight+10, game.width-controlAreaWidth-30, cardHeight-20);
+	controlArea = new Phaser.Rectangle(game.width-controlAreaWidth-10, game.height-cardHeight+10, controlAreaWidth, cardHeight-20);
+	game.add.button(controlArea.x + 10, controlArea.y + 110, 'pass', pass, this);
+	game.add.button(controlArea.x + 10, controlArea.y + 170, 'end turn', endTurn, this);
 	selectionRect = game.add.graphics();
 	game.physics.startSystem(Phaser.Physics.ARCADE);
 	gameOverlay = game.add.graphics(0, 0);
 	gameOverlay.lineStyle(2, 0xFFFFFF, 1);
 	gameOverlay.drawRoundedRect(mainArea.x, mainArea.y, mainArea.width, mainArea.height, 3);
 	gameOverlay.drawRoundedRect(handArea.x, handArea.y, handArea.width, handArea.height, 3);
+	gameOverlay.drawRoundedRect(controlArea.x, controlArea.y, controlArea.width, controlArea.height, 3);
+	foodBank = game.add.graphics();
+	foodBank.x = mainArea.halfWidth;
+	foodBank.y = mainArea.halfHeight;
+	foodBank.lineStyle(0);
 	hand = game.add.group();
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
+}
+
+function pass() {
+	if (availableActions == null) {
+		return false;
+	};
+	var action = {
+		Type: "Pass",
+		Arguments: {}
+	};
+	for (var i in availableActions) {
+		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
+			availableActions = null;
+			socket.send(i);
+			return true;
+		}
+	}
+}
+
+function endTurn() {
+	if (availableActions == null) {
+		return false;
+	};
+	var action = {
+		Type: "End turn",
+		Arguments: {}
+	};
+	for (var i in availableActions) {
+		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
+			availableActions = null;
+			socket.send(i);
+			return true;
+		}
+	}
 }
 
 function update() {
@@ -123,8 +170,19 @@ function showAction(action) {
 function updateGameState(state) {
 	currentPlayerId=state.CurrentPlayerId;
 	playerId = state.PlayerId;
+	updateFoodBank(state.FoodBank);
 	updatePlayers(state.Players);
 	updateHand(state.PlayerCards);
+}
+
+function updateFoodBank(count) {
+	foodBank.clear();
+	foodBank.beginFill(0xFF0000, 1);
+	var rectangle = new Phaser.Rectangle(-50, -50, 100, 100);
+	for (var i = 0; i<count; i++) {
+		foodBank.drawCircle(rectangle.randomX, rectangle.randomY, 10);
+	}
+	foodBank.endFill();
 }
 
 function updateHand(handDTO) {
@@ -137,7 +195,14 @@ function updateHand(handDTO) {
 	var offset = (handArea.width-startX*2)/(handDTO.length);
 	
 	for (var i in handDTO) {
-		hand.add(new Card(handDTO[i], startX + (+i + +0.5)*offset, y));
+		var card = new Card(handDTO[i], startX + (+i + +0.5)*offset, y);
+		card.events.onInputOver.add(cardOver, card);
+    	card.events.onInputOut.add(cardOut, card);
+	    card.events.onInputUp.add(cardUp, card);
+	    card.events.onDragStart.add(cardDragStart, card);
+	    card.events.onDragStop.add(cardDragStop, card);
+	    card.events.onDragUpdate.add(cardDragUpdate, card);
+		hand.add(card);
 	}
 }
 
@@ -236,21 +301,23 @@ function cardDragStart(card) {
 function cardDragStop(card) {
 	selectionRect.clear();
 	var creature = getIntersectedCreature(card.getBounds());
-	if (creature != null) {
-		if (card.properties.length == 1 || !card.flipped) {
-			var property = card.properties[0];
-		} else {
-			var property = card.properties[1];
+	if (Phaser.Rectangle.intersects(card.getBounds(),mainArea)) {
+		if (creature != null) {
+			if (card.properties.length == 1 || !card.flipped) {
+				var property = card.properties[0];
+			} else {
+				var property = card.properties[1];
+			}
+			if (executeAddPropertyAction(creature.id, property.Id)) {
+				return;
+			} else {
+				card.position = card.input.dragStartPoint.clone();
+				return;
+			}
 		}
-		if (executeAddPropertyAction(creature.id, property.Id)) {
-			return;
-		} else {
-			card.position = card.input.dragStartPoint.clone();
+		if (executeAddCreatureAction(card.id)) {
 			return;
 		}
-	}
-	if (executeAddCreatureAction(card.id)) {
-		return;
 	}
 	card.position = card.input.dragStartPoint.clone();
 }
@@ -267,7 +334,7 @@ function cardDragUpdate(card) {
 		selectionRect.rotation = intersectedCreature.worldRotation;
 		selectionRect.x = intersectedCreature.getBounds().x+intersectedCreature.getBounds().width/2;
 		selectionRect.y = intersectedCreature.getBounds().y+intersectedCreature.getBounds().height/2;
-		selectionRect.updateCache();
+		game.world.bringToTop(selectionRect);
 	}
 }
 
@@ -302,12 +369,6 @@ Card = function(cardDTO, x, y) {
     this.input.enableDrag();
     this.id = cardDTO.Id;
     this.properties = cardDTO.Properties;
-    this.events.onInputOver.add(cardOver, this);
-    this.events.onInputOut.add(cardOut, this);
-    this.events.onInputUp.add(cardUp, this);
-    this.events.onDragStart.add(cardDragStart, this);
-    this.events.onDragStop.add(cardDragStop, this);
-    this.events.onDragUpdate.add(cardDragUpdate, this);
     this.flipped = false;
 	if (cardDTO.ActiveProperty.Id != cardDTO.Properties[0].Id) {
 		this.flipped = true;
