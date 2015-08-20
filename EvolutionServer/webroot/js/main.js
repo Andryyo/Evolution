@@ -22,6 +22,7 @@ function create() {
 	game.add.tileSprite(0, 0, game.width, game.height, 'table');
 	handArea = new Phaser.Rectangle(10, game.height-cardHeight+10, game.width-20, cardHeight-20);
 	mainArea = new Phaser.Rectangle(10, 10, game.width-20, game.height-cardHeight-10);
+	selectionRect = game.add.graphics();
 	game.physics.startSystem(Phaser.Physics.ARCADE);
 	gameOverlay = game.add.graphics(0, 0);
 	gameOverlay.lineStyle(2, 0xFFFFFF, 1);
@@ -233,61 +234,63 @@ function cardDragStart(card) {
 }
 
 function cardDragStop(card) {
-	if (selectionRect != null) {
-		selectionRect.destroy();
-		selectionRect = null;
-	}
-	if (Phaser.Rectangle.intersects(card.getBounds(),mainArea)) {
-		for (var i in players.children) {
-			for (var j in players.getChildAt(i).children) {
-				var creature = players.getChildAt(i).getChildAt(j);
-				if (Phaser.Rectangle.intersects(card.getBounds(), creature.getBounds())) {
-					if (card.properties.length == 1 || !card.flipped) {
-						var property = card.properties[0];
-					} else {
-						var property = card.properties[1];
-					}
-					if (executeAddPropertyAction(creature.id, property.Id)) {
-						return;
-					} else {
-						card.position = card.input.dragStartPoint.clone();
-						return;
-					}
-				}
-			}
+	selectionRect.clear();
+	var creature = getIntersectedCreature(card.getBounds());
+	if (creature != null) {
+		if (card.properties.length == 1 || !card.flipped) {
+			var property = card.properties[0];
+		} else {
+			var property = card.properties[1];
 		}
-		if (executeAddCreatureAction(card.id)) {
+		if (executeAddPropertyAction(creature.id, property.Id)) {
+			return;
+		} else {
+			card.position = card.input.dragStartPoint.clone();
 			return;
 		}
+	}
+	if (executeAddCreatureAction(card.id)) {
+		return;
 	}
 	card.position = card.input.dragStartPoint.clone();
 }
 
 function cardDragUpdate(card) {
-	if (Phaser.Rectangle.intersects(card.getBounds(),mainArea)) {
+	var intersectedCreature = getIntersectedCreature(card.getBounds());
+	selectionRect.clear();
+	if (intersectedCreature != null) {
+		selectionRect.lineStyle(2, 0xFFFFFF, 1);
+ 		selectionRect.moveTo(-cardWidth/4-10, -cardHeight/4-10);
+		selectionRect.lineTo(-cardWidth/4-10, +cardHeight/4+10);
+		selectionRect.moveTo(cardWidth/4+10, -cardHeight/4-10);
+		selectionRect.lineTo(cardWidth/4+10, +cardHeight/4+10);
+		selectionRect.rotation = intersectedCreature.worldRotation;
+		selectionRect.x = intersectedCreature.getBounds().x+intersectedCreature.getBounds().width/2;
+		selectionRect.y = intersectedCreature.getBounds().y+intersectedCreature.getBounds().height/2;
+		selectionRect.updateCache();
+	}
+}
+
+function getIntersectedCreature(rectangle) {
+	var maxIntersectObject;
+	var maxIntersectArea = 0;
+	if (Phaser.Rectangle.intersects(rectangle,mainArea)) {
 		for (var i in players.children) {
 			for (var j in players.getChildAt(i).children) {
 				var creature = players.getChildAt(i).getChildAt(j);
-				if (Phaser.Rectangle.intersects(card.getBounds(), creature.getBounds())) {
-					if (selectionRect == null) {
-						selectionRect = game.add.graphics();
-						selectionRect.lineStyle(2, 0xFFFFFF, 1);
-						selectionRect.drawRoundedRect(-10, -10, cardWidth/2+20, cardHeight/2+20, 3);
+				var bounds = creature.getBounds();
+				var intersectionRect = Phaser.Rectangle.intersection(rectangle, bounds);
+				if (! intersectionRect.empty) {
+					var intersectionRectArea = intersectionRect.width * intersectionRect.height;
+					if (intersectionRectArea > maxIntersectArea) {
+						maxIntersectArea = intersectionRectArea;
+						maxIntersectObject = creature;
 					}
- 					selectionRect.rotation = creature.worldRotation;
-					selectionRect.graphicsData[0].width = creature.getBounds().width+20;
-					selectionRect.graphicsData[0].height = creature.getBounds().height+20;
-					selectionRect.x = creature.getBounds().x;
-					selectionRect.y = creature.getBounds().y;
-					return;
 				}
 			}
 		}
 	}
-	if (selectionRect != null) {
-		selectionRect.destroy();
-		selectionRect = null;
-	}
+	return maxIntersectObject;
 }
 
 Card = function(cardDTO, x, y) {
