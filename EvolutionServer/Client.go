@@ -5,7 +5,8 @@ import (
 	"golang.org/x/net/websocket"
 	//"io"
 	"fmt"
-	//"log"
+	"log"
+	"strconv"
 	"github.com/Andryyo/Evolution/EvolutionEngine"
 )
 
@@ -25,11 +26,6 @@ type Message struct {
 	Value interface{}
 }
 
-type Choice struct {
-	Actions []*EvolutionEngine.Action
-	Game *EvolutionEngine.Game
-}
-
 func NewMessageChoicesList(actions []ActionDTO, state GameStateDTO) Message {
 	return Message{MESSAGE_CHOICES_LIST, struct{Actions []ActionDTO; State GameStateDTO}{actions, state}}
 }
@@ -45,72 +41,11 @@ type Client struct {
 	server *Server
 	messageToSend chan Message
 	receivedMessage chan Message
-	choiceAvailableCh chan Choice
+	choiceAvailableCh chan *EvolutionEngine.Choice
 	choiceCh chan int
+	notifyCh chan struct{Action *EvolutionEngine.Action; Game *EvolutionEngine.Game}
+	updateChannelsCh chan struct{}
 	player *EvolutionEngine.Player
-}
-
-type ClientAdapter struct {
-	player *EvolutionEngine.Player
-	client *Client
-	choiceAvailable chan Choice
-	choiceCh chan int
-	choice *Choice
-}
-
-func NewClientAdapter(client *Client) *ClientAdapter{
-	adapter := &ClientAdapter{}
-	adapter.client = client
-	adapter.choiceAvailable = make(chan Choice)
-	adapter.choiceCh = make(chan int)
-	client.choiceAvailableCh = adapter.choiceAvailable
-	client.choiceCh = adapter.choiceCh
-	return  adapter
-}
-
-func (a *ClientAdapter) SetPlayer(player *EvolutionEngine.Player) {
-	a.player = player
-	a.client.player = player
-}
-
-func (a *ClientAdapter) Notify(game *EvolutionEngine.Game, action *EvolutionEngine.Action) {
-	if a.client != nil {
-		a.client.Notify(game, action)
-	}
-}
-func (a *ClientAdapter) MakeChoice(game *EvolutionEngine.Game, choices []*EvolutionEngine.Action) *EvolutionEngine.Action {
-	if len(choices) == 0 {
-		return  nil
-	}
-	if len(choices) == 1 {
-		return choices[0]
-	}
-
-	choice := Choice{choices, game}
-	a.choice = &Choice{choices, game}
-	a.choiceAvailable <- choice
-	choiceNum := <- a.choiceCh
-	chosenAction := choice.Actions[choiceNum]
-	a.choice = nil
-	return chosenAction
-}
-
-func (a *ClientAdapter) GetName() string {
-	if a.client != nil {
-		return  a.client.name
-	} else {
-		return ""
-	}
-}
-
-func (a *ClientAdapter) SetClient(client *Client) {
-	a.client = client
-	a.client.choiceAvailableCh = a.choiceAvailable
-	a.client.choiceCh = a.choiceCh
-	a.client.player = a.player
-	if a.choice != nil {
-		a.choiceAvailable <- *a.choice
-	}
 }
 
 func NewClient(ws *websocket.Conn, server *Server) *Client {
@@ -118,14 +53,24 @@ func NewClient(ws *websocket.Conn, server *Server) *Client {
 	client := &Client{}
 	client.messageToSend = make(chan Message, channelBufSize)
 	client.receivedMessage = make(chan Message, channelBufSize)
+	client.updateChannelsCh = make(chan struct{})
 	client.id = maxId
 	client.ws = ws
 	client.server = server
 	return client
 }
 
-func (c *Client) SetOwner(player *EvolutionEngine.Player) {
+func (c *Client) SetPlayer(player *EvolutionEngine.Player) {
+	if player.Occupied {
+		return
+	}
+	log.Printf("Set player %p\n", player)
+	player.Occupied = true
+	c.choiceAvailableCh = player.AvailableChoiceCh
+	c.choiceCh = player.ChoiceCh
+	c.notifyCh = player.NotifyCh
 	c.player = player
+	c.updateChannelsCh <- struct{}{}
 }
 
 func (c *Client) Listen() {
@@ -137,7 +82,8 @@ func (c *Client) listenRead() {
 	for {
 		var msg Message
 		err := websocket.JSON.Receive(c.ws, &msg)
-		if err != nil {
+		if err == nil {
+			log.Println(msg)
 			switch msg.Type {
 			case MESSAGE_NEW_PLAYER:
 				c.server.newPlayerCh <- c
@@ -146,10 +92,11 @@ func (c *Client) listenRead() {
 			case MESSAGE_NAME:
 				c.name = msg.Value.(string)
 			case MESSAGE_CHOICE_NUM:
-				c.choiceCh <- msg.Value.(int)
+				choiceNum,_ := strconv.ParseInt(msg.Value.(string), 10, 16)
+				c.choiceCh <- int(choiceNum)
 			}
 		} else {
-
+			log.Println(err)
 		}
 	}
 }
@@ -161,8 +108,14 @@ func (c *Client) listenWrite() {
 		case msg := <-c.messageToSend:
 			err := websocket.JSON.Send(c.ws, msg)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 			}
+		case msg := <-c.notifyCh:
+			message := NewMessageExecutedAction(NewActionDTO(msg.Action), NewGameStateDTO(c.player, msg.Game))
+			err := websocket.JSON.Send(c.ws, message)
+			if err != nil {
+				log.Println(err)
+			}			
 		// receive done request
 		/*case <-c.doneCh:
 			c.server.Del(c)
@@ -170,6 +123,7 @@ func (c *Client) listenWrite() {
 			return*/
 		case choice := <-c.choiceAvailableCh:
 			c.MakeChoice(choice)
+		case <-c.updateChannelsCh:
 		}
 	}
 }
@@ -283,11 +237,7 @@ func NewCreatureDTO(creature *EvolutionEngine.Creature) CreatureDTO {
 	return creatureDTO
 }
 
-func (c *Client) Notify(game *EvolutionEngine.Game, action *EvolutionEngine.Action) {
-	c.messageToSend <- NewMessageExecutedAction(NewActionDTO(action), NewGameStateDTO(c.player, game))
-}
-
-func (c *Client) MakeChoice(choice Choice) {
+func (c *Client) MakeChoice(choice *EvolutionEngine.Choice) {
 	actionsDTOs := make([]ActionDTO, 0, len(choice.Actions))
 	for _, action := range choice.Actions {
 		actionsDTOs = append(actionsDTOs, NewActionDTO(action))

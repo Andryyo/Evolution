@@ -96,20 +96,18 @@ func (s *Server) Listen() {
 		select {
 			case <-s.startGame:
 				log.Println("Starting game")
-				choiceMakers := make([]EvolutionEngine.ChoiceMaker, 0, len(s.clients))
-				for _, client := range s.clients {
-					choiceMakers = append(choiceMakers, NewClientAdapter(client))
-				}
 				if s.game == nil {
-					s.game = EvolutionEngine.NewGame(choiceMakers...)
+					s.game = EvolutionEngine.NewGame(len(s.clients))
 				} 
+				for _,client := range s.clients {
+					player := s.game.GetUnoccupiedPlayer()
+					log.Println(player)
+					client.SetPlayer(player)
+				}
 				go s.game.Start()
 			case c := <-s.addCh:
-				log.Println("Added new client")
+				log.Println("Added new client", c.id)
 				s.clients[c.id] = c
-				if (s.game != nil) {
-					s.game.AddObserver(c)
-				}
 			case c := <-s.delCh:
 				log.Println("Delete client")
 				delete(s.clients, c.id)
@@ -118,7 +116,7 @@ func (s *Server) Listen() {
 				s.game.Players.Do(func (p interface {}) {
 					player := p.(*EvolutionEngine.Player)
 					if (fmt.Sprintf("%p", player) == val.playerId) {
-						player.ChoiceMaker.(*ClientAdapter).SetClient(val.client)
+						val.client.SetPlayer(player)
 					}
 				})
 			case err := <-s.errCh:

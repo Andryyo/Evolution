@@ -12,7 +12,6 @@ import (
 
 type Game struct {
 	Players       *ring.Ring
-	Observers	  []Observer
 	PlayersCount	int
 	Deck          []*Card
 	Filters       []Filter
@@ -24,28 +23,8 @@ type Game struct {
 func (g *Game) NotifyAll(action *Action) {
 	log.Printf("%#v\n", action)
 	g.Players.Do(func (val interface{}) {
-		val.(*Player).Notify(g, action)
+		val.(*Player).NotifyCh <- struct{Action *Action; Game *Game}{action, g}
 	})
-	for _,observer := range g.Observers {
-		observer.Notify(g, action)
-	}
-}
-
-func (g *Game) AddObserver(observer Observer) {
-	g.Observers = append(g.Observers, observer)
-}
-
-func (g *Game) RemoveObserver(observer Observer) {
-	for i, o := range g.Observers {
-		if o == observer {
-			g.Observers = append(g.Observers[:i], g.Observers[i+1:]...)
-			return
-		}
-	}
-}
-
-type Observer interface  {
-	Notify(game *Game, action *Action)
 }
 
 type WithTraits interface {
@@ -208,12 +187,38 @@ func (c *Creature) ContainsTrait(trait TraitType) bool {
 	return false
 }
 
+type Choice struct {
+	Actions []*Action
+	Game *Game
+}
+
 type Player struct {
-	ChoiceMaker
-	Name      string
+	PendingChoice *Choice
+	AvailableChoiceCh chan *Choice
+	ChoiceCh chan int
+	NotifyCh chan struct{Action *Action; Game *Game}
 	Creatures []*Creature
 	Cards     []*Card
 	Traits    []TraitType
+	Occupied  bool
+}
+
+func (p *Player) MakeChoice(game *Game, actions []*Action) *Action {
+	if len(actions) == 0 {
+		return nil
+	}
+	if len(actions) == 1 {
+		return actions[0]
+	}
+	choice := &Choice{actions, game}
+	p.PendingChoice = choice
+	choiceNum := -1
+	for choiceNum < 0 || choiceNum >= len(actions) {
+		p.AvailableChoiceCh <- choice
+		choiceNum = <- p.ChoiceCh
+	}
+	p.PendingChoice = nil
+	return actions[choiceNum]
 }
 
 func (p *Player) RemoveCard(card *Card) {
@@ -260,7 +265,7 @@ func (p *Player) RemoveCreature(creature *Creature) {
 	}
 }
 
-func NewGame(players ...ChoiceMaker) *Game {
+func NewGame(playersCount int) *Game {
 	game := new(Game)
 	log.Println("Initializing cards filters")
 	game.InitializeCardsFilters()
@@ -269,7 +274,7 @@ func NewGame(players ...ChoiceMaker) *Game {
 	log.Println("Initializing deck")
 	game.InitializeDeck()
 	log.Println("Initializing players")
-	game.InitializePlayers(players...)
+	game.InitializePlayers(playersCount)
 	return game
 }
 
@@ -340,12 +345,15 @@ func (g *Game) InitializeDeck() {
 	g.ShuffleDeck()
 }
 
-func (g *Game) InitializePlayers(players ...ChoiceMaker) {
-	g.Players = ring.New(len(players))
-	g.PlayersCount = len(players)
-	for _, choiceMaker := range players {
-		player := &Player{Name: choiceMaker.GetName(), ChoiceMaker: choiceMaker}
-		choiceMaker.SetPlayer(player)
+func (g *Game) InitializePlayers(playersCount int) {
+	g.PlayersCount = playersCount
+	g.Players = ring.New(g.PlayersCount)
+	for i := 0 ; i<g.PlayersCount; i++ {
+		player := &Player{}
+		player.Occupied = false
+		player.AvailableChoiceCh = make(chan *Choice)
+		player.ChoiceCh = make(chan int)
+		player.NotifyCh = make(chan struct{Action *Action; Game *Game})
 		g.Players.Value = player
 		g.TakeCards(player, 6)
 		g.Players = g.Players.Next()
@@ -385,6 +393,18 @@ func (g *Game) ShuffleDeck() {
 		j := rand.Intn(i + 1)
 		g.Deck[i], g.Deck[j] = g.Deck[j], g.Deck[i]
 	}
+}
+
+func (g *Game) GetUnoccupiedPlayer() *Player {
+	if !g.Players.Value.(*Player).Occupied {
+		return g.Players.Value.(*Player)
+	}
+	for p:= g.Players.Next(); p!=g.Players; p = p.Next() {
+		if !p.Value.(*Player).Occupied {
+			return p.Value.(*Player)
+		}
+	}
+	return nil
 }
 
 func (g *Game) ActionDenied(action *Action) (result bool) {

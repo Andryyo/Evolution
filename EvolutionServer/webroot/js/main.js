@@ -48,8 +48,8 @@ function create() {
 	hand.y = handArea.y;
 	players = game.add.group();
 	socket = new WebSocket("ws://127.0.0.1:8081/socket");
-	socket.onOpen = onSocketOpen;
-	socket.onMessage = onSocketMessage;
+	socket.onopen = onSocketOpen;
+	socket.onmessage = onSocketMessage;
 }
 
 function pass() {
@@ -60,13 +60,7 @@ function pass() {
 		Type: "Pass",
 		Arguments: {}
 	};
-	for (var i in availableActions) {
-		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
-			availableActions = null;
-			socket.send(i);
-			return true;
-		}
-	}
+	return executeAction(action)
 }
 
 function endTurn() {
@@ -77,13 +71,7 @@ function endTurn() {
 		Type: "End turn",
 		Arguments: {}
 	};
-	for (var i in availableActions) {
-		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
-			availableActions = null;
-			socket.send(i);
-			return true;
-		}
-	}
+	return executeAction(action)
 }
 
 function update() {
@@ -106,7 +94,7 @@ function update() {
 function render() {
 }
 
-function onSocketOpen() {
+function onSocketOpen(event) {
 	var textArea = document.getElementById("log");
     textArea.value = "";
     var playerId = localStorage.getItem("PlayerId");
@@ -134,9 +122,25 @@ function onSocketMessage(event) {
 		showAction(obj.Value);
 	}
 	if (obj.Type == 1) {
-		availableActions = obj.Value;
+		updateGameState(obj.Value.State)
+		availableActions = obj.Value.Actions;
 	}
 };
+
+function executeAction(action) {
+	for (var i in availableActions) {
+		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
+			availableActions = null;
+			response = {
+				Type: 5,
+				Value:i
+			}
+			socket.send(JSON.stringify(response));
+			return true;
+		}
+	}
+	return false;
+}
 
 function executeAddCreatureAction(cardId) {
 	if (availableActions == null) {
@@ -149,14 +153,7 @@ function executeAddCreatureAction(cardId) {
 			Player: currentPlayerId
 		}
 	};
-	for (var i in availableActions) {
-		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
-			availableActions = null;
-			socket.send(i);
-			return true;
-		}
-	}
-	return false;
+	return executeAction(action)
 }
 
 function executeAddPropertyAction(creatureId, propertyId) {
@@ -170,14 +167,7 @@ function executeAddPropertyAction(creatureId, propertyId) {
 			Property: propertyId
 		}
 	};
-	for (var i in availableActions) {
-		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
-			availableActions = null;
-			socket.send(i);
-			return true;
-		}
-	}
-	return false;
+	return executeAction(action)
 }
 
 function showAction(action) {

@@ -19,7 +19,7 @@ func (a Action) GoString() string {
 		card := a.Arguments[PARAMETER_CARD].(*Card)
 		result += fmt.Sprintf("Create creature using (%#v) card", card)
 	case ACTION_START_TURN:
-		result += fmt.Sprintf("Player %s starts turn", a.Arguments[PARAMETER_PLAYER].(*Player).Name)
+		result += fmt.Sprintf("Player %p starts turn", a.Arguments[PARAMETER_PLAYER].(*Player))
 	case ACTION_ADD_SINGLE_PROPERTY:
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
 		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
