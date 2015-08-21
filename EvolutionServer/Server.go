@@ -21,6 +21,8 @@ type Server struct {
 	startGame chan bool
 	errCh     chan error
 	game	  *EvolutionEngine.Game
+	newPlayerCh chan *Client
+	existingPlayerCh chan struct {client *Client; playerId string}
 }
 
 func NewServer () *Server {
@@ -31,6 +33,8 @@ func NewServer () *Server {
 	doneCh := make(chan bool)
 	startGame := make(chan bool)
 	errCh := make(chan error)
+	newPlayerCh := make(chan *Client)
+	existingPlayerCh := make(chan struct {client *Client; playerId string})
 
 	return &Server{
 		messages,
@@ -41,6 +45,8 @@ func NewServer () *Server {
 		startGame,
 		errCh,
 		nil,
+		newPlayerCh,
+		existingPlayerCh,
 	}
 }
 
@@ -63,18 +69,7 @@ func (s *Server) Err(err error) {
 
 func (s *Server) Listen() {
 	log.Println("Listening...")
-	
-	onConnected := func(ws *websocket.Conn) {
-		defer func() {
-			err := ws.Close()
-			if err != nil {
-				s.errCh <- err
-			}
-		}()
-		client := NewClient(ws, s)
-		s.Add(client)
-		client.Listen()
-	}
+
 	go func () {
 		for {
 			var command string
@@ -86,17 +81,27 @@ func (s *Server) Listen() {
 			}
 		}
 	}()
-	http.Handle("/connect", websocket.Handler(onConnected))
+	http.Handle("/socket", websocket.Handler(func(ws *websocket.Conn) {
+		defer func() {
+			err := ws.Close()
+			if err != nil {
+				s.errCh <- err
+			}
+		}()
+		client := NewClient(ws, s)
+		s.Add(client)
+		client.Listen()
+	}))
 	for {
 		select {
 			case <-s.startGame:
 				log.Println("Starting game")
-				players := make([]EvolutionEngine.ChoiceMaker, 0, len(s.clients))
+				choiceMakers := make([]EvolutionEngine.ChoiceMaker, 0, len(s.clients))
 				for _, client := range s.clients {
-					players = append(players, client)
+					choiceMakers = append(choiceMakers, NewClientAdapter(client))
 				}
 				if s.game == nil {
-					s.game = EvolutionEngine.NewGame(players...)
+					s.game = EvolutionEngine.NewGame(choiceMakers...)
 				} 
 				go s.game.Start()
 			case c := <-s.addCh:
@@ -108,6 +113,14 @@ func (s *Server) Listen() {
 			case c := <-s.delCh:
 				log.Println("Delete client")
 				delete(s.clients, c.id)
+			case <-s.newPlayerCh:
+			case val := <-s.existingPlayerCh:
+				s.game.Players.Do(func (p interface {}) {
+					player := p.(*EvolutionEngine.Player)
+					if (fmt.Sprintf("%p", player) == val.playerId) {
+						player.ChoiceMaker.(*ClientAdapter).SetClient(val.client)
+					}
+				})
 			case err := <-s.errCh:
 				log.Println("Error:", err.Error())
 			case <-s.doneCh:

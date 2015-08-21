@@ -345,7 +345,7 @@ func (g *Game) InitializePlayers(players ...ChoiceMaker) {
 	g.PlayersCount = len(players)
 	for _, choiceMaker := range players {
 		player := &Player{Name: choiceMaker.GetName(), ChoiceMaker: choiceMaker}
-		choiceMaker.SetOwner(player)
+		choiceMaker.SetPlayer(player)
 		g.Players.Value = player
 		g.TakeCards(player, 6)
 		g.Players = g.Players.Next()

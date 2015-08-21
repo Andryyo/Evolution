@@ -7,10 +7,9 @@ import (
 
 type ChoiceMaker interface {
 	Notify(game *Game, action *Action)
-	GetChoice() int
 	MakeChoice([]*Action) *Action
 	GetName() string
-	SetOwner(player *Player)
+	SetPlayer(player *Player)
 }
 
 type ConsoleChoiceMaker struct {
