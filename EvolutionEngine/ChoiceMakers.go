@@ -7,7 +7,7 @@ import (
 
 type ChoiceMaker interface {
 	Notify(game *Game, action *Action)
-	MakeChoice([]*Action) *Action
+	MakeChoice(*Game, []*Action) *Action
 	GetName() string
 	SetPlayer(player *Player)
 }

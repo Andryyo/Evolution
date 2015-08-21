@@ -14,6 +14,8 @@ var availableActions = null;
 var currentPlayerId;
 var playerId;
 var selectionRect;
+var socket;
+
 
 function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
@@ -45,6 +47,9 @@ function create() {
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
+	socket = new WebSocket("ws://127.0.0.1:8081/socket");
+	socket.onOpen = onSocketOpen;
+	socket.onMessage = onSocketMessage;
 }
 
 function pass() {
@@ -101,14 +106,26 @@ function update() {
 function render() {
 }
 
-var socket = new WebSocket("ws://127.0.0.1:8081/connect");
-
-socket.onopen = function() {
+function onSocketOpen() {
 	var textArea = document.getElementById("log");
     textArea.value = "";
+    var playerId = localStorage.getItem("PlayerId");
+    if (playerId == null) {
+    	message = {
+    		Type: 2,
+    		Value: {}
+    	};
+    	socket.send(message);
+    } else {
+    	message = {
+            Type: 3,
+            Value: {playerId}
+        };
+        socket.send(message);
+    }
 };
 
-socket.onmessage = function(event) {
+function onSocketMessage(event) {
 	var textArea = document.getElementById("log");
 	textArea.value = textArea.value + '\n' + event.data;
 	textArea.scrollTop = textArea.scrollHeight;

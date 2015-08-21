@@ -13,3 +13,17 @@ textarea.form-control {
 
 #game_holder {
 }
+
+#overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin-right: auto;
+    margin-left: auto;
+    margin-top: auto;
+    margin-bottom: auto;
+    width: 350px;
+    height: 400px;
+}

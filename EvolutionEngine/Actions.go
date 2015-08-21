@@ -95,7 +95,7 @@ func (a *Action) Execute(game *Game) {
 			return
 		}
 		chooser := actions[0].Arguments[PARAMETER_PLAYER].(*Player)
-		game.ExecuteAction(chooser.MakeChoice(actions))
+		game.ExecuteAction(chooser.MakeChoice(game, actions))
 	case ACTION_START_TURN:
 		break
 	case ACTION_SELECT_FROM_AVAILABLE_ACTIONS:
@@ -111,7 +111,7 @@ func (a *Action) Execute(game *Game) {
 		})*/
 		player := game.CurrentPlayer
 		actions := game.GetAllowedActions()
-		action := player.MakeChoice(actions)
+		action := player.MakeChoice(game, actions)
 		if action != nil {
 			game.ExecuteAction(action)
 		}
