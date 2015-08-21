@@ -3,7 +3,7 @@ package EvolutionServer
 
 import (
 	"golang.org/x/net/websocket"
-	//"io"
+	"io"
 	"fmt"
 	"log"
 	"strconv"
@@ -44,6 +44,7 @@ type Client struct {
 	choiceAvailableCh chan *EvolutionEngine.Choice
 	choiceCh chan int
 	notifyCh chan struct{Action *EvolutionEngine.Action; Game *EvolutionEngine.Game}
+	doneCh   chan struct{}
 	updateChannelsCh chan struct{}
 	player *EvolutionEngine.Player
 }
@@ -54,6 +55,7 @@ func NewClient(ws *websocket.Conn, server *Server) *Client {
 	client.messageToSend = make(chan Message, channelBufSize)
 	client.receivedMessage = make(chan Message, channelBufSize)
 	client.updateChannelsCh = make(chan struct{})
+	client.doneCh = make(chan struct{})
 	client.id = maxId
 	client.ws = ws
 	client.server = server
@@ -71,6 +73,9 @@ func (c *Client) SetPlayer(player *EvolutionEngine.Player) {
 	c.notifyCh = player.NotifyCh
 	c.player = player
 	c.updateChannelsCh <- struct{}{}
+	if player.PendingChoice != nil {
+		c.choiceAvailableCh <- player.PendingChoice
+	}
 }
 
 func (c *Client) Listen() {
@@ -79,24 +84,31 @@ func (c *Client) Listen() {
 }
 
 func (c *Client) listenRead() {
+	var msg Message
 	for {
-		var msg Message
-		err := websocket.JSON.Receive(c.ws, &msg)
-		if err == nil {
-			log.Println(msg)
-			switch msg.Type {
-			case MESSAGE_NEW_PLAYER:
-				c.server.newPlayerCh <- c
-			case MESSAGE_EXISTING_PLAYER:
-				c.server.existingPlayerCh <- struct {client *Client; playerId string}{c, msg.Value.(string)}
-			case MESSAGE_NAME:
-				c.name = msg.Value.(string)
-			case MESSAGE_CHOICE_NUM:
-				choiceNum,_ := strconv.ParseInt(msg.Value.(string), 10, 16)
-				c.choiceCh <- int(choiceNum)
-			}
-		} else {
-			log.Println(err)
+		select {
+			case <-c.doneCh:
+				return
+			default:
+				err := websocket.JSON.Receive(c.ws, &msg)
+				if err == nil {
+					log.Println(msg)
+					switch msg.Type {
+						case MESSAGE_NEW_PLAYER:
+							c.server.newPlayerCh <- c
+						case MESSAGE_EXISTING_PLAYER:
+							c.server.existingPlayerCh <- struct {client *Client; playerId string}{c, msg.Value.(string)}
+						case MESSAGE_NAME:
+							c.name = msg.Value.(string)
+						case MESSAGE_CHOICE_NUM:
+							choiceNum,_ := strconv.ParseInt(msg.Value.(string), 10, 16)
+							c.choiceCh <- int(choiceNum)
+					}
+				} else if err == io.EOF {
+					c.doneCh <- struct{}{}
+				} else {
+					log.Println(err)
+				}
 		}
 	}
 }
@@ -104,7 +116,6 @@ func (c *Client) listenRead() {
 func (c *Client) listenWrite() {
 	for {
 		select {
-		// send message to the client
 		case msg := <-c.messageToSend:
 			err := websocket.JSON.Send(c.ws, msg)
 			if err != nil {
@@ -112,15 +123,12 @@ func (c *Client) listenWrite() {
 			}
 		case msg := <-c.notifyCh:
 			message := NewMessageExecutedAction(NewActionDTO(msg.Action), NewGameStateDTO(c.player, msg.Game))
-			err := websocket.JSON.Send(c.ws, message)
-			if err != nil {
-				log.Println(err)
-			}			
-		// receive done request
-		/*case <-c.doneCh:
+			go func() {c.messageToSend <- message}()
+		case <-c.doneCh:
+			c.player.Occupied = false
 			c.server.Del(c)
-			c.doneCh <- true // for listenRead method
-			return*/
+			c.doneCh <- struct{}{}
+			return
 		case choice := <-c.choiceAvailableCh:
 			c.MakeChoice(choice)
 		case <-c.updateChannelsCh:

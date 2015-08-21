@@ -113,9 +113,15 @@ func (s *Server) Listen() {
 				delete(s.clients, c.id)
 			case <-s.newPlayerCh:
 			case val := <-s.existingPlayerCh:
+				if s.game == nil {
+					continue
+				}
+				log.Println("Connecting existing client ", val.client, " to player", val.playerId)
 				s.game.Players.Do(func (p interface {}) {
+					log.Println(p)
 					player := p.(*EvolutionEngine.Player)
 					if (fmt.Sprintf("%p", player) == val.playerId) {
+						log.Println("Set player")
 						val.client.SetPlayer(player)
 					}
 				})

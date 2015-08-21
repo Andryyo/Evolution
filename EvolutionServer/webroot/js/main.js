@@ -101,15 +101,15 @@ function onSocketOpen(event) {
     if (playerId == null) {
     	message = {
     		Type: 2,
-    		Value: {}
+    		Value: null
     	};
-    	socket.send(message);
+    	socket.send(JSON.stringify(message));
     } else {
     	message = {
             Type: 3,
-            Value: {playerId}
+            Value: playerId
         };
-        socket.send(message);
+        socket.send(JSON.stringify(message));
     }
 };
 
@@ -177,6 +177,7 @@ function showAction(action) {
 function updateGameState(state) {
 	currentPlayerId=state.CurrentPlayerId;
 	playerId = state.PlayerId;
+	localStorage.setItem("PlayerId", playerId);
 	updateFoodBank(state.FoodBank);
 	updatePlayers(state.Players);
 	updateHand(state.PlayerCards);
