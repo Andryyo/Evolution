@@ -25,5 +25,10 @@ textarea.form-control {
     margin-top: auto;
     margin-bottom: auto;
     width: 350px;
-    height: 400px;
+    height: 400px
+}
+
+ul {
+    overflow-y: auto;
+    height: 320px;
 }

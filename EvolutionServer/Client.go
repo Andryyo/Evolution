@@ -20,6 +20,7 @@ const (
 	MESSAGE_LOBBIES_LIST
 	MESSAGE_NEW_LOBBY
 	MESSAGE_JOIN_LOBBY
+	MESSAGE_VOTE_START
 )
 
 type Message struct {
@@ -55,7 +56,9 @@ type Client struct {
 	player *EvolutionEngine.Player
 	lobbiesCh chan map[int]*GameLobby
 	lobbies map[int]*GameLobby
+	voteCh chan struct{}
 	observer bool
+	voteStart bool
 }
 
 func NewClient(ws *websocket.Conn, server *Server) *Client {
@@ -105,6 +108,11 @@ func (c *Client) listenRead() {
 				if err == nil {
 					log.Println(msg)
 					switch msg.Type {
+					case MESSAGE_VOTE_START:
+						c.voteStart = msg.Value.(bool)
+						if c.voteCh != nil {
+							c.voteCh <- struct {}{}
+						}
 					case MESSAGE_NEW_LOBBY:
 						c.server.newLobbyCh <- struct {}{}
 					case MESSAGE_JOIN_LOBBY:

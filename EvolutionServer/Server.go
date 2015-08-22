@@ -24,6 +24,7 @@ type Server struct {
 	errCh     chan error
 	joinLobbyCh chan struct {client *Client; lobby *GameLobby; playerId *string}
 	newLobbyCh chan struct{}
+	updateLobbiesCh chan struct{}
 }
 
 func NewServer () *Server {
@@ -38,6 +39,7 @@ func NewServer () *Server {
 	server.errCh = make(chan error)
 	server.joinLobbyCh = make(chan struct {client *Client; lobby *GameLobby; playerId *string})
 	server.newLobbyCh = make(chan struct{})
+	server.updateLobbiesCh = make(chan struct{})
 	return server
 }
 
@@ -56,6 +58,10 @@ func (s *Server) Done() {
 
 func (s *Server) Err(err error) {
 	s.errCh <- err
+}
+
+func (s *Server) UpdateChannels() {
+	s.updateLobbiesCh <- struct {}{}
 }
 
 func (s *Server) Listen() {
@@ -88,11 +94,10 @@ func (s *Server) Listen() {
 			case <- s.newLobbyCh:
 				lobby := NewGameLobby()
 				s.gameLobbies[lobby.Id] = lobby
-				for _,client := range s.clients {
-					client.lobbiesCh <- s.gameLobbies
-				}
+				go s.UpdateChannels()
 			case msg := <- s.joinLobbyCh:
 				msg.lobby.AddClientCh <- struct{client *Client; playerId *string}{msg.client, msg.playerId}
+				go s.UpdateChannels()
 			case c := <-s.addCh:
 				log.Println("Added new client", c.id)
 				s.clients[c.id] = c
@@ -102,7 +107,12 @@ func (s *Server) Listen() {
 				if c.lobby != nil {
 					c.lobby.RemoveClientCh <- c
 				}
+				go s.UpdateChannels()
 				delete(s.clients, c.id)
+			case <- s.updateLobbiesCh:
+				for _,client := range s.clients {
+					client.lobbiesCh <- s.gameLobbies
+				}
 			case err := <-s.errCh:
 				log.Println("Error:", err.Error())
 			case <-s.doneCh:
@@ -119,6 +129,7 @@ type GameLobby struct {
 	Observers map[int]*Client
 	AddClientCh chan struct {client *Client; playerId *string}
 	RemoveClientCh chan *Client
+	VoteCh chan struct{}
 }
 
 func NewGameLobby() *GameLobby {
@@ -129,6 +140,7 @@ func NewGameLobby() *GameLobby {
 	lobby.Observers = make(map[int]*Client)
 	lobby.AddClientCh = make(chan struct {client *Client; playerId *string})
 	lobby.RemoveClientCh = make(chan *Client)
+	lobby.VoteCh = make(chan struct{})
 	go lobby.Listen()
 	return lobby
 }
@@ -145,12 +157,33 @@ func (gl *GameLobby) Listen() {
 			} else {
 				delete(gl.Players, client.id)
 			}
+		case <-gl.VoteCh:
+			allVoteYes := true
+			for _, client := range gl.Players {
+				if !client.voteStart {
+					allVoteYes = false
+				}
+			}
+			if allVoteYes {
+				gl.StartGame()
+			}
 		}
 	}
 }
 
+func (gl *GameLobby) StartGame() {
+	gl.Game = EvolutionEngine.NewGame(len(gl.Players))
+	for _,client := range gl.Players {
+		player := gl.Game.GetUnoccupiedPlayer()
+		log.Println(player)
+		client.SetPlayer(player)
+	}
+	go gl.Game.Start()
+}
+
 func (gl *GameLobby) Add(client *Client, playerId *string) {
 	client.lobby = gl
+	client.voteCh = gl.VoteCh
 	if gl.Game == nil {
 		gl.AddNewPlayer(client)
 	} else if playerId == nil {
@@ -158,7 +191,6 @@ func (gl *GameLobby) Add(client *Client, playerId *string) {
 	} else {
 		gl.RestorePlayer(client, playerId)
 	}
-	log.Println("Adding player to lobby")
 }
 
 func (gl *GameLobby) AddObserver(client *Client) {

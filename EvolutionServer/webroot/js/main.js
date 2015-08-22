@@ -15,6 +15,7 @@ var currentPlayerId;
 var playerId;
 var selectionRect;
 var socket;
+var voteStart = false;
 
 var MESSAGE_EXECUTED_ACTION = 0
 var MESSAGE_CHOICES_LIST = 1
@@ -23,13 +24,15 @@ var	MESSAGE_CHOICE_NUM = 3
 var MESSAGE_LOBBIES_LIST = 4
 var	MESSAGE_NEW_LOBBY = 5
 var	MESSAGE_JOIN_LOBBY = 6
+var MESSAGE_VOTE_START = 7
 
 function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
 	game.load.image('back','assets/back.png');
 	game.load.image('table','assets/bg_texture___wood_by_nortago.jpg');
 	game.load.image('pass','assets/pass.png');
-	game.load.image('end turn', 'assets/End turn.png');
+	game.load.image('end turn', 'assets/End turn.png')
+	game.load.image('vote', 'assets/vote.png')
 }
 
 function create() {
@@ -37,8 +40,9 @@ function create() {
 	mainArea = new Phaser.Rectangle(10, 10, game.width-20, game.height-cardHeight-10);
 	handArea = new Phaser.Rectangle(10, game.height-cardHeight+10, game.width-controlAreaWidth-30, cardHeight-20);
 	controlArea = new Phaser.Rectangle(game.width-controlAreaWidth-10, game.height-cardHeight+10, controlAreaWidth, cardHeight-20);
-	game.add.button(controlArea.x + 10, controlArea.y + 110, 'pass', pass, this);
-	game.add.button(controlArea.x + 10, controlArea.y + 170, 'end turn', endTurn, this);
+	game.add.button(controlArea.x + 10, controlArea.y + 50, 'pass', pass, this);
+	game.add.button(controlArea.x + 10, controlArea.y + 110, 'end turn', endTurn, this);
+	game.add.button(controlArea.x + 10, controlArea.y + 170, 'vote', vote, this);
 	selectionRect = game.add.graphics();
 	game.physics.startSystem(Phaser.Physics.ARCADE);
 	gameOverlay = game.add.graphics(0, 0);
@@ -58,6 +62,15 @@ function create() {
 	socket = new WebSocket("ws://93.188.39.118:8081/socket");
 	socket.onopen = onSocketOpen;
 	socket.onmessage = onSocketMessage;
+}
+
+function vote() {
+	voteStart = !voteStart;
+	var message = {
+    		Type: MESSAGE_VOTE_START,
+    		Value: voteStart
+    	};
+    socket.send(JSON.stringify(message));
 }
 
 function pass() {
