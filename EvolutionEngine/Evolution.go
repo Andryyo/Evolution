@@ -371,7 +371,7 @@ func (g *Game) InitializePlayers(playersCount int) {
 	g.Players = ring.New(g.PlayersCount)
 	for i := 0 ; i<g.PlayersCount; i++ {
 		player := &Player{}
-		player.Id = fmt.Sprint("%p", player)
+		player.Id = fmt.Sprintf("%p", player)
 		player.Occupied = false
 		player.AvailableChoiceCh = make(chan *Choice)
 		player.ChoiceCh = make(chan int)
@@ -430,6 +430,7 @@ func (g *Game) GetUnoccupiedPlayer() *Player {
 }
 
 func (g *Game) GetPlayerById(id string) *Player {
+	log.Printf("%s %s\n", g.Players.Value.(*Player).Id, id)
 	if g.Players.Value.(*Player).Id == id {
 		return g.Players.Value.(*Player)
 	}

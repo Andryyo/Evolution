@@ -155,6 +155,7 @@ func (gl *GameLobby) Listen() {
 				gl.Game.RemoveObserver(client.notifyCh)
 				delete(gl.Observers, client.id)
 			} else {
+				client.player.Occupied = false
 				delete(gl.Players, client.id)
 			}
 		case <-gl.VoteCh:
@@ -174,6 +175,7 @@ func (gl *GameLobby) Listen() {
 func (gl *GameLobby) StartGame() {
 	gl.Game = EvolutionEngine.NewGame(len(gl.Players))
 	for _,client := range gl.Players {
+		client.voteStart = false
 		player := gl.Game.GetUnoccupiedPlayer()
 		log.Println(player)
 		client.SetPlayer(player)
@@ -206,6 +208,7 @@ func (gl *GameLobby) AddNewPlayer(client *Client) {
 
 func (gl *GameLobby) RestorePlayer(client *Client, playerId *string) {
 	player := gl.Game.GetPlayerById(*playerId)
+	log.Println("Found player ", player)
 	if player != nil {
 		gl.Players[client.id] = client
 		client.SetPlayer(player)

@@ -118,9 +118,9 @@ func (c *Client) listenRead() {
 					case MESSAGE_JOIN_LOBBY:
 						log.Println(msg.Value)
 						lobbyId,_ := msg.Value.(map[string]interface{})["LobbyId"].(float64)
-						log.Println("Successfully parser lobbyId")
-						playerId, ok := msg.Value.(map[string]interface{})["PLayerId"].(string)
-						log.Println("Successfully parsed playerId")
+						log.Println("Successfully parser lobbyId ", lobbyId)
+						playerId, ok := msg.Value.(map[string]interface{})["PlayerId"].(string)
+						log.Println("Successfully parsed playerId ", playerId)
 						if ok {
 							c.server.joinLobbyCh <- struct {client *Client; lobby *GameLobby; playerId *string}{c, c.lobbies[int(lobbyId)], &playerId}
 						} else {
