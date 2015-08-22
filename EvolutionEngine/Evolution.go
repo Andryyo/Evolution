@@ -12,7 +12,8 @@ import (
 
 type Game struct {
 	Players       *ring.Ring
-	PlayersCount	int
+	ObserversChs  []chan struct{Action *Action; Game *Game}
+	PlayersCount  int
 	Deck          []*Card
 	Filters       []Filter
 	CurrentPhase  PhaseType
@@ -20,11 +21,30 @@ type Game struct {
 	Food          int  
 }
 
+func (g *Game) AddObserver() chan struct{Action *Action; Game *Game} {
+	ch := make(chan struct{Action *Action; Game *Game})
+	g.ObserversChs = append(g.ObserversChs, ch)
+	return ch
+}
+
+func (g *Game) RemoveObserver(ch chan struct{Action *Action; Game *Game}) {
+	for i, tmp := range g.ObserversChs {
+		if tmp == ch {
+			g.ObserversChs = append(g.ObserversChs[:i], g.ObserversChs[i+1:]...)
+			return
+		}
+	}
+}
+
 func (g *Game) NotifyAll(action *Action) {
 	log.Printf("%#v\n", action)
+	msg := struct{Action *Action; Game *Game}{action, g}
 	g.Players.Do(func (val interface{}) {
-		val.(*Player).NotifyCh <- struct{Action *Action; Game *Game}{action, g}
+		val.(*Player).NotifyCh <- msg
 	})
+	for _,ch := range g.ObserversChs {
+		ch <- msg
+	}
 }
 
 type WithTraits interface {
@@ -193,6 +213,7 @@ type Choice struct {
 }
 
 type Player struct {
+	Id string
 	PendingChoice *Choice
 	AvailableChoiceCh chan *Choice
 	ChoiceCh chan int
@@ -350,6 +371,7 @@ func (g *Game) InitializePlayers(playersCount int) {
 	g.Players = ring.New(g.PlayersCount)
 	for i := 0 ; i<g.PlayersCount; i++ {
 		player := &Player{}
+		player.Id = fmt.Sprint("%p", player)
 		player.Occupied = false
 		player.AvailableChoiceCh = make(chan *Choice)
 		player.ChoiceCh = make(chan int)
@@ -401,6 +423,18 @@ func (g *Game) GetUnoccupiedPlayer() *Player {
 	}
 	for p:= g.Players.Next(); p!=g.Players; p = p.Next() {
 		if !p.Value.(*Player).Occupied {
+			return p.Value.(*Player)
+		}
+	}
+	return nil
+}
+
+func (g *Game) GetPlayerById(id string) *Player {
+	if g.Players.Value.(*Player).Id == id {
+		return g.Players.Value.(*Player)
+	}
+	for p:= g.Players.Next(); p!=g.Players; p = p.Next() {
+		if p.Value.(*Player).Id == id {
 			return p.Value.(*Player)
 		}
 	}

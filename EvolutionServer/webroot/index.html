@@ -28,6 +28,13 @@
           <textarea class="form-control" id="log" rows="20"></textarea>
           <input type="text" class="form-control" id="command" onkeypress="return myOnKeyPress(event)"></textarea>
         </div>
+        <div class="panel panel-default" id="overlay">
+          <ul class="list-group" id = "lobbies">
+          </ul>
+          <div class="panel-body">
+            <button type="button" class="list-group-item" onclick="createLobby()">New lobby</button>
+          </div>
+        </div>
       </div>
     </div>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->

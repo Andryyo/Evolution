@@ -16,6 +16,13 @@ var playerId;
 var selectionRect;
 var socket;
 
+var MESSAGE_EXECUTED_ACTION = 0
+var MESSAGE_CHOICES_LIST = 1
+var	MESSAGE_NAME = 2
+var	MESSAGE_CHOICE_NUM = 3
+var MESSAGE_LOBBIES_LIST = 4
+var	MESSAGE_NEW_LOBBY = 5
+var	MESSAGE_JOIN_LOBBY = 6
 
 function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
@@ -47,7 +54,8 @@ function create() {
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
-	socket = new WebSocket("ws://127.0.0.1:8081/socket");
+	//socket = new WebSocket("ws://127.0.0.1:8081/socket");
+	socket = new WebSocket("ws://93.188.39.118:8081/socket");
 	socket.onopen = onSocketOpen;
 	socket.onmessage = onSocketMessage;
 }
@@ -97,20 +105,6 @@ function render() {
 function onSocketOpen(event) {
 	var textArea = document.getElementById("log");
     textArea.value = "";
-    var playerId = localStorage.getItem("PlayerId");
-    if (playerId == null) {
-    	message = {
-    		Type: 2,
-    		Value: null
-    	};
-    	socket.send(JSON.stringify(message));
-    } else {
-    	message = {
-            Type: 3,
-            Value: playerId
-        };
-        socket.send(JSON.stringify(message));
-    }
 };
 
 function onSocketMessage(event) {
@@ -118,12 +112,52 @@ function onSocketMessage(event) {
 	textArea.value = textArea.value + '\n' + event.data;
 	textArea.scrollTop = textArea.scrollHeight;
 	var obj = JSON.parse(event.data);
-	if (obj.Type == 0) {
+	if (obj.Type == MESSAGE_EXECUTED_ACTION) {
 		showAction(obj.Value);
 	}
-	if (obj.Type == 1) {
+	if (obj.Type == MESSAGE_CHOICES_LIST) {
 		updateGameState(obj.Value.State)
 		availableActions = obj.Value.Actions;
+	}
+	if (obj.Type == MESSAGE_LOBBIES_LIST) {
+		updateLobbiesList(obj.Value);
+	}
+};
+
+function connectToLobby(lobbyId) {
+	var playerId = localStorage.getItem("PlayerId")
+	message = {
+		Type: MESSAGE_JOIN_LOBBY,
+		Value: {
+			LobbyId: lobbyId,
+			PlayerId: playerId
+		}}
+	socket.send(JSON.stringify(message))
+};
+
+function createLobby() {
+	message = {
+		Type: MESSAGE_NEW_LOBBY,
+		Value: null}
+	socket.send(JSON.stringify(message))
+};
+
+function updateLobbiesList(lobbies) {
+	var select = document.getElementById("lobbies");
+	while (select.hasChildNodes()) {
+		select.removeChild(select.lastChild);
+	}
+	for (var i in lobbies) {
+		var option = document.createElement("button");
+		option.type = "button"
+		option.onclick=function (event) {
+			connectToLobby(event.lobbyId);
+			$("#overlay").hide();
+		}
+		option.className="list-group-item";
+		option.innerHTML = "Lobby " + lobbies[i].Id + ": " + lobbies[i].PlayersCount + " players";
+		option.lobbyId = lobbies[i].Id;
+		select.appendChild(option);
 	}
 };
 
@@ -132,7 +166,7 @@ function executeAction(action) {
 		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
 			availableActions = null;
 			response = {
-				Type: 5,
+				Type: MESSAGE_CHOICE_NUM,
 				Value:i
 			}
 			socket.send(JSON.stringify(response));

@@ -2,9 +2,9 @@
 package main
 
 import (
-	"net/http"
-	"log"
 	"github.com/Andryyo/Evolution/EvolutionServer"
+	"log"
+	"net/http"
 )
 
 func main() {
