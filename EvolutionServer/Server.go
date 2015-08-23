@@ -20,7 +20,6 @@ type Server struct {
 	addCh     chan *Client
 	delCh     chan *Client
 	doneCh    chan bool
-	startGame chan bool
 	errCh     chan error
 	joinLobbyCh chan struct {client *Client; lobby *GameLobby; playerId *string}
 	newLobbyCh chan struct{}
@@ -35,7 +34,6 @@ func NewServer () *Server {
 	server.addCh = make(chan *Client)
 	server.delCh = make(chan *Client)
 	server.doneCh = make(chan bool)
-	server.startGame = make(chan bool)
 	server.errCh = make(chan error)
 	server.joinLobbyCh = make(chan struct {client *Client; lobby *GameLobby; playerId *string})
 	server.newLobbyCh = make(chan struct{})
@@ -66,18 +64,6 @@ func (s *Server) UpdateChannels() {
 
 func (s *Server) Listen() {
 	log.Println("Listening...")
-
-	go func () {
-		for {
-			var command string
-			fmt.Scanln(&command)
-			log.Println("Received server command " + command)
-			switch command {
-				case "Start":
-					s.startGame <- true
-			}
-		}
-	}()
 	http.Handle("/socket", websocket.Handler(func(ws *websocket.Conn) {
 		defer func() {
 			err := ws.Close()

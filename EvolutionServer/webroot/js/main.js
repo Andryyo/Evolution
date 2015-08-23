@@ -164,7 +164,7 @@ function updateLobbiesList(lobbies) {
 		var option = document.createElement("button");
 		option.type = "button"
 		option.onclick=function (event) {
-			connectToLobby(event.lobbyId);
+			connectToLobby(event.target.	lobbyId);
 			$("#overlay").hide();
 		}
 		option.className="list-group-item";
