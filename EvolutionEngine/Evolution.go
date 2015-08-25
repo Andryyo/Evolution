@@ -38,6 +38,11 @@ func (g *Game) RemoveObserver(ch chan struct{Action *Action; Game *Game}) {
 
 func (g *Game) NotifyAll(action *Action) {
 	log.Printf("%#v\n", action)
+	if action.Type == ACTION_SELECT ||
+		action.Type == ACTION_SEQUENCE ||
+		action.Type == ACTION_ADD_FILTERS {
+		return
+	}
 	msg := struct{Action *Action; Game *Game}{action, g}
 	g.Players.Do(func (val interface{}) {
 		val.(*Player).NotifyCh <- msg

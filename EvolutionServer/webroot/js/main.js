@@ -209,7 +209,7 @@ function executeAddCreatureAction(cardId) {
 			Player: currentPlayerId
 		}
 	};
-	return executeAction(action)
+	return executeAction(action);
 }
 
 function executeAddPropertyAction(creatureId, propertyId) {
@@ -220,7 +220,7 @@ function executeAddPropertyAction(creatureId, propertyId) {
 			Property: propertyId
 		}
 	};
-	return executeAction(action)
+	return executeAction(action);
 }
 
 function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propertyId) {
@@ -234,7 +234,7 @@ function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propert
 			Property: propertyId
 		}
 	};
-	return executeAction(action)
+	return executeAction(action);
 }
 
 function executeActionGrazing(propertyId) {
@@ -244,7 +244,7 @@ function executeActionGrazing(propertyId) {
 			Property: propertyId
 		}
 	};
-	return executeAction(action)
+	return executeAction(action);
 }
 
 function executeActionHibernation(creatureId) {
@@ -254,7 +254,7 @@ function executeActionHibernation(creatureId) {
 			Creature: creatureId
 		}
 	};
-	return executeAction(action)
+	return executeAction(action);
 }
 
 function executeActionAttack(playerId, sourceCreatureId, targetCreatureId) {
@@ -266,7 +266,7 @@ function executeActionAttack(playerId, sourceCreatureId, targetCreatureId) {
 			TargetCreature: targetCreatureId
 		}
 	};
-	return executeAction(action)
+	return executeAction(action);
 }
 
 function executeActionPiracy(sourceCreatureId, targetCreatureId, trait) {
@@ -278,7 +278,16 @@ function executeActionPiracy(sourceCreatureId, targetCreatureId, trait) {
 			Trait: trait
 		}
 	};
-	return executeAction(action)
+	return executeAction(action);
+}
+
+function executeActionGrabFood(creatureId) {
+	var action = {
+		Type: "Get food from bank",
+		Arguments: {
+			Creature: creatureId
+		}};
+	return executeAction(action);
 }
 
 function showAction(action) {
@@ -395,10 +404,35 @@ Creature = function(creatureDTO, x, y) {
 		}
 	}
 	var back = new Phaser.Sprite(game, 0, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
+	back.inputEnabled = true;
 	back.anchor.setTo(0.5, 0.5);
     back.scale.setTo(0.5, 0.5);
+    back.events.onInputUp.add(function (card) {
+    	executeActionGrabFood(card.parent.Id);
+    }, card);
+    back.events.onInputOut.add(propertyOut, back);
+    back.events.onInputOver.add(backOver, back);
 	game.add.existing(back);
 	this.add(back);
+	var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
+	this.Food = game.add.graphics();
+	this.Food.x = back.x;
+	this.Food.y = back.y;
+	this.add(this.Food);
+    this.Food.beginFill(0xFF0000, 1);
+    for (var i in creatureDTO.Traits) {
+        if (creatureDTO.Traits[i] == "Food") {
+        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
+       	}
+    }
+    foodBank.endFill();
+    this.Food.beginFill(0x0000FF, 1);
+    for (var i in creatureDTO.Traits) {
+    	if (creatureDTO.Traits[i] == "Additional Food") {
+        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
+        }
+    }
+    foodBank.endFill();
 };
 
 Creature.prototype = Object.create(Phaser.Group.prototype);
@@ -441,6 +475,16 @@ function propertyOver(card, pointer) {
 				card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + pairCard.position.y - cardHeight/4 + 4, cardWidth/2-8, cardEdgeWidth/2-8, 3);
 			}
 		}
+	}
+}
+
+function backOver(card, pointer) {
+	if (card.selection == null) {
+		card.selection = game.add.graphics();
+		card.parent.parent.add(card.selection);
+		var creature = card.parent;
+		card.selection.lineStyle(1, 0x000000, 1);
+		card.selection.drawRoundedRect(creature.position.x + 8 - cardWidth/4, creature.position.y + card.position.y - cardHeight/4  + 8 , cardWidth/2-16, cardHeight/2-16, 3);
 	}
 }
 
