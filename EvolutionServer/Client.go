@@ -174,21 +174,31 @@ func (c *Client) listenWrite() {
 
 type ActionDTO struct {
 	Type EvolutionEngine.ActionType
-	Arguments map[EvolutionEngine.ArgumentName]string
+	Arguments map[EvolutionEngine.ArgumentName]interface{}
 }
 
 func NewActionDTO(action *EvolutionEngine.Action) ActionDTO{
-	dto := ActionDTO{action.Type, map[EvolutionEngine.ArgumentName]string{}}
+	dto := ActionDTO{action.Type, map[EvolutionEngine.ArgumentName]interface{}{}}
 	for key,value := range action.Arguments {
-		switch v := value.(type) {
-			case *EvolutionEngine.Player: dto.Arguments[key] = fmt.Sprintf("%p",v)
-			case *EvolutionEngine.Creature: dto.Arguments[key] = fmt.Sprintf("%p", v)
-			case *EvolutionEngine.Card: dto.Arguments[key] = fmt.Sprintf("%p", v)
-			case *EvolutionEngine.Property: dto.Arguments[key] = fmt.Sprintf("%p", v)
-			default : dto.Arguments[key] = fmt.Sprintf("%v", v)
-		}
+		dto.Arguments[key] = EncodeActionArgument(value)
 	}
 	return dto
+}
+
+func EncodeActionArgument(argument interface {}) interface {} {
+	switch v := argument.(type) {
+		case *EvolutionEngine.Player: return fmt.Sprintf("%p",v)
+		case *EvolutionEngine.Creature: return fmt.Sprintf("%p", v)
+		case *EvolutionEngine.Card: return fmt.Sprintf("%p", v)
+		case *EvolutionEngine.Property: return fmt.Sprintf("%p", v)
+		case []*EvolutionEngine.Creature:
+			result := make([]string, 0, len(v))
+			for _, creature := range v {
+				result = append(result, fmt.Sprintf("%p", creature))
+			}
+			return result
+		default :  return v
+	}
 }
 
 type GameStateDTO struct {

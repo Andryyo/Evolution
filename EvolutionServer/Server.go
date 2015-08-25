@@ -161,7 +161,7 @@ func (gl *GameLobby) Listen() {
 }
 
 func (gl *GameLobby) StartGame() {
-	if len(gl.Players) != 0 {
+	if len(gl.Players) == 0 {
 		return
 	}
 	gl.Game = EvolutionEngine.NewGame(len(gl.Players))
