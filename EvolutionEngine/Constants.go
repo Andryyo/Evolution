@@ -190,8 +190,8 @@ const (
 	PARAMETER_TRAIT ArgumentName = "Trait"
 	PARAMETER_SOURCE ArgumentName = "Source"
 	PARAMETER_FILTERS ArgumentName = "Filters"
-	PARAMETER_SOURCE_CREATURE ArgumentName = "Source creature"
-	PARAMETER_TARGET_CREATURE ArgumentName = "Taget creature"
+	PARAMETER_SOURCE_CREATURE ArgumentName = "SourceCreature"
+	PARAMETER_TARGET_CREATURE ArgumentName = "TargetCreature"
 	PARAMETER_COUNT ArgumentName = "Count"
 )
 

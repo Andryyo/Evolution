@@ -237,6 +237,50 @@ function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propert
 	return executeAction(action)
 }
 
+function executeActionGrazing(propertyId) {
+	var action = {
+		Type: "Destroy bank food",
+		Arguments: {
+			Property: propertyId
+		}
+	};
+	return executeAction(action)
+}
+
+function executeActionHibernation(creatureId) {
+	var action = {
+		Type: "Hibernate",
+		Arguments: {
+			Creature: creatureId
+		}
+	};
+	return executeAction(action)
+}
+
+function executeActionAttack(playerId, sourceCreatureId, targetCreatureId) {
+	var action = {
+		Type: "Attack",
+		Arguments: {
+			Player: playerId,
+			SourceCreature: sourceCreatureId,
+			TargetCreature: targetCreatureId
+		}
+	};
+	return executeAction(action)
+}
+
+function executeActionPiracy(sourceCreatureId, targetCreatureId, trait) {
+	var action = {
+		Type: "Piracy",
+		Arguments: {
+			SourceCreature: sourceCreatureId,
+			TargetCreature: targetCreatureId,
+			Trait: trait
+		}
+	};
+	return executeAction(action)
+}
+
 function showAction(action) {
 	updateGameState(action.State)
 }
@@ -335,14 +379,20 @@ Creature = function(creatureDTO, x, y) {
 	this.x = x-cardWidth/4;
 	this.y = y-cardHeight/4;
 	this.Id = creatureDTO.Id;
+	this.Traits = creatureDTO.Traits;
 	for (var i in creatureDTO.Cards) {
 		var card = new Card(creatureDTO.Cards[i], 0, cardEdgeWidth/2 * i);
 		game.add.existing(card);
 		card.inputEnabled = true;
 		this.add(card);
 		card.selection = null;
-		card.events.onInputOver.add(propertyOver, card);
-		card.events.onInputOut.add(propertyOut, card);
+		if ($.inArray("Used", card.getActiveProperty().Traits) != -1) {
+			card.rotation = Math.PI/2;
+		} else {
+			card.events.onInputOver.add(propertyOver, card);
+			card.events.onInputOut.add(propertyOut, card);
+			addPropertyEvents(card);
+		}
 	}
 	var back = new Phaser.Sprite(game, 0, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
 	back.anchor.setTo(0.5, 0.5);
@@ -353,6 +403,28 @@ Creature = function(creatureDTO, x, y) {
 
 Creature.prototype = Object.create(Phaser.Group.prototype);
 Creature.prototype.constructor = Creature;
+
+function addPropertyEvents(card) {
+	var traits = card.getActiveProperty().Traits; 
+	if ($.inArray("Grazing", traits) != -1) {
+        card.events.onInputUp.add(function (card) {
+			executeActionGrazing(card.getActiveProperty().Id);
+		}, card);
+    } 
+	if ($.inArray("Hibernation", traits) != -1) {
+        card.events.onInputUp.add(function (card) {
+			executeActionHibernation(card.parent.Id);
+		}, card);
+    } else if ($.inArray("Piracy", traits) != -1) {
+        card.events.onInputDown.add(function (card) {
+			startSelection(card.parent, card.parent, onSelectPiracyTarget);
+		}, card);
+    } else if ($.inArray("Carnivorous", traits) != -1) {
+		card.events.onInputDown.add(function (card) {
+			startSelection(card.parent, card.parent, onSelectAttackTarget);
+		}, card);
+    }
+}
 
 function propertyOver(card, pointer) {
 	if (card.selection == null) {
@@ -664,4 +736,26 @@ function onSelectSecondPairCreature(arguments, pointer) {
 		return
 	}
 	executeAddPairPropertyAction(firstCreature.Id, secondCreature.Id, property.Id);
+}
+
+function onSelectAttackTarget(source, pointer) {
+	var target = getCreatureAtPoint(pointer.position);
+	if (source == null || target == null) {
+		return
+	}
+	executeActionAttack(currentPlayerId, source.Id, target.Id);
+}
+
+function onSelectPiracyTarget(source, pointer) {
+	var target = getCreatureAtPoint(pointer.position);
+	if (source == null || target == null) {
+		return
+	}
+	if ($.inArray("Food", target.Traits) != -1) {
+		executeActionPiracy(source.Id, target.Id, "Food");
+	} else if ($.inArray("Additional food", target.Traits) != -1) {
+		executeActionPiracy(source.Id, target.Id, "Additional food");
+	} else {
+		return
+	}
 }

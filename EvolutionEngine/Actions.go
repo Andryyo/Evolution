@@ -169,6 +169,7 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_DETERMINE_FOOD_BANK:
 		foodCount := 0
 		switch game.PlayersCount {
+			case 1: foodCount = rand.Intn(6)+1
 			case 2: foodCount = rand.Intn(6)+1+2
 			case 3: foodCount = rand.Intn(6)+rand.Intn(6)+2	
 			case 4: foodCount = rand.Intn(6)+rand.Intn(6)+2+1	
