@@ -40,8 +40,8 @@ func (g *Game) InitializeCardsFilters() {
 		&FilterDeny{
 			NewANDCondition(
 				&ConditionActionType{ACTION_ATTACK},
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_CAMOUFLAGE}, 0),
-				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_SHARP_VISION}, 1)),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_SOURCE_CREATURE, TRAIT_SHARP_VISION}, 0),
+				NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_TARGET_CREATURE, TRAIT_CAMOUFLAGE}, 1)),
 			nil})
 	//burrowing
 	g.Filters = append(g.Filters,
