@@ -339,7 +339,12 @@ func (g *Game) InitializeCardsFilters() {
 			&ConditionActionType{ACTION_HIBERNATE},
 			NewConditionEqual(FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT, 0)),
 		nil})
-	
+
+	g.AddFilter(&FilterDeny{
+		NewANDCondition(
+			&ConditionActionType{ACTION_HIBERNATE},
+			NewConditionEqual(FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT, 0)),
+		nil})
 	//Poisonous
 	g.AddFilter(&FilterAction{
 		FILTER_ACTION_EXECUTE_AFTER,

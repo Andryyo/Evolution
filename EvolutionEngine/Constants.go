@@ -104,7 +104,7 @@ const (
 	TRAIT_TOOK_FOOD TraitType = "Food"
 	TRAIT_SHARP_VISION TraitType = "Sharp vision"
 	TRAIT_CAMOUFLAGE TraitType = "Camouflage"
-	TRAIT_BURROWING TraitType = "Burowing"
+	TRAIT_BURROWING TraitType = "Burrowing"
 	TRAIT_FED TraitType = "Fed"
 	TRAIT_PAIR TraitType = "Pair"
 	TRAIT_FAT_TISSUE TraitType = "Fat tissue"

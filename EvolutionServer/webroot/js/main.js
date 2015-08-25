@@ -64,9 +64,9 @@ function create() {
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
-	socket = new WebSocket("ws://127.0.0.1:8081/socket");
+	//socket = new WebSocket("ws://127.0.0.1:8081/socket");
 	//socket = new WebSocket("ws://93.188.39.118:8081/socket");
-	//socket = new WebSocket("ws://82.193.120.243:80/socket");
+	socket = new WebSocket("ws://82.193.120.243:80/socket");
 	socket.onopen = onSocketOpen;
 	socket.onmessage = onSocketMessage;
 }
@@ -428,8 +428,15 @@ Creature = function(creatureDTO, x, y) {
     foodBank.endFill();
     this.Food.beginFill(0x0000FF, 1);
     for (var i in creatureDTO.Traits) {
-    	if (creatureDTO.Traits[i] == "Additional Food") {
+    	if (creatureDTO.Traits[i] == "Additional food") {
         	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
+        }
+    }
+    foodBank.endFill();
+    this.Food.beginFill(0xFFFF00, 1);
+    for (var i in creatureDTO.Traits) {
+    	if (creatureDTO.Traits[i] == "Fat") {
+            this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
         }
     }
     foodBank.endFill();
@@ -636,7 +643,7 @@ function getCardAtPoint(point) {
 	if (creature == null) {
 		return null;
 	}
-	for (var i = creature.children.length-2; i=>0; i++) {
+	for (var i = creature.children.length-2; i>=0; i++) {
 		if (Phaser.Rectangle.containsPoint(creature.getChildAt(i).getBounds(), point)) {
 			return creature.getChildAt(i);
 		}
@@ -711,7 +718,7 @@ Card = function(cardDTO, x, y) {
     } else if ($.inArray("Parasite", this.properties[0].Traits) != -1 && $.inArray("Fat tissue", this.properties[1].Traits) != -1) {
        this.frame = 19;
     } else {
-    	alert("Unknown card");
+    	alert(JSON.stringify(this.properties[0].Traits));
     }
     game.add.existing(this)
 };
