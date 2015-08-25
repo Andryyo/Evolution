@@ -16,6 +16,7 @@ var playerId;
 var selectionRect;
 var socket;
 var voteStart = false;
+var selectionArrow;
 
 var MESSAGE_EXECUTED_ACTION = 0
 var MESSAGE_CHOICES_LIST = 1
@@ -30,12 +31,15 @@ function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
 	game.load.image('back','assets/back.png');
 	game.load.image('table','assets/bg_texture___wood_by_nortago.jpg');
+	game.load.image('bronze','assets/bronze.png');
+	game.load.image('copper','assets/copper.png');
 	game.load.image('pass','assets/pass.png');
 	game.load.image('end turn', 'assets/End turn.png')
 	game.load.image('vote', 'assets/vote.png')
 }
 
 function create() {
+	game.input.addMoveCallback(mouseMoveCallback,this);
 	game.add.tileSprite(0, 0, game.width, game.height, 'table');
 	mainArea = new Phaser.Rectangle(10, 10, game.width-20, game.height-cardHeight-10);
 	handArea = new Phaser.Rectangle(10, game.height-cardHeight+10, game.width-controlAreaWidth-30, cardHeight-20);
@@ -58,8 +62,9 @@ function create() {
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
-	//socket = new WebSocket("ws://127.0.0.1:8081/socket");
-	socket = new WebSocket("ws://93.188.39.118:8081/socket");
+	socket = new WebSocket("ws://127.0.0.1/socket");
+	//socket = new WebSocket("ws://93.188.39.118:8081/socket");
+	//socket = new WebSocket("ws://82.193.120.243:80/socket");
 	socket.onopen = onSocketOpen;
 	socket.onmessage = onSocketMessage;
 }
@@ -257,6 +262,7 @@ function updateHand(handDTO) {
 	    card.events.onDragStart.add(cardDragStart, card);
 	    card.events.onDragStop.add(cardDragStop, card);
 	    card.events.onDragUpdate.add(cardDragUpdate, card);
+	    card.input.enableDrag();
 		hand.add(card);
 	}
 }
@@ -265,7 +271,8 @@ function updatePlayers(playersDTO) {
 	players.removeAll();
 	var startAngle = 180;
 	var deltaAngle = 360/playersDTO.length;
-	var radius = mainArea.halfHeight - cardHeight/2;
+	var radiusX = mainArea.halfWidth - cardHeight/4;
+	var radiusY = mainArea.halfHeight - cardHeight/4;
 	var playerIndex = 0;
 	for (var i in playersDTO) {
 		if (playersDTO[i].Id == playerId) {
@@ -275,13 +282,13 @@ function updatePlayers(playersDTO) {
 	}
 	var angle = 0;
 	for (var i = playerIndex; i<playersDTO.length; i++) {
-		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radius, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radius, angle)
+		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radiusX, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radiusY, angle)
         game.add.existing(playersCreatures);
         players.add(playersCreatures);
         angle += deltaAngle;
 	}
 	for (var i = 0; i<playerIndex; i++) {
-		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radius, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radius, angle)
+		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radiusX, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radiusY, angle)
         game.add.existing(playersCreatures);
         players.add(playersCreatures);
         angle += deltaAngle;
@@ -306,15 +313,26 @@ PlayerCreatures.prototype.constructor = PlayerCreatures;
 
 Creature = function(creatureDTO, x, y) {
 	Phaser.Group.call(this, game);
-	this.x = x;
-	this.y = y;
+	this.x = x-cardWidth/4;
+	this.y = y-cardHeight/4;
 	this.id = creatureDTO.Id;
 	for (var i in creatureDTO.Cards) {
-		var card = new Card(creatureDTO.Cards[i], -cardWidth/4, cardEdgeWidth/2 * i);
+		var card = new Card(creatureDTO.Cards[i], 0, cardEdgeWidth/2 * i);
 		game.add.existing(card);
 		this.add(card);
+		card.events.onInputDown.add(function (card) {
+			var arrow = game.add.group();
+			arrow.x = card.getBounds().x + card.getBounds().width/2;
+			arrow.y = card.getBounds().y + card.getBounds().height/2;
+			var line = game.add.tileSprite(-2, 0, 4, 200, 'copper');
+			arrow.add(line);
+			selectionArrow = {
+				arrow: arrow,
+				startObject: card
+			};
+		}, card);
 	}
-	var back = new Phaser.Sprite(game, -cardWidth/4, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
+	var back = new Phaser.Sprite(game, 0, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
 	back.anchor.setTo(0.5, 0.5);
     back.scale.setTo(0.5, 0.5);
 	game.add.existing(back);
@@ -382,14 +400,14 @@ function cardDragUpdate(card) {
 	var intersectedCreature = getIntersectedCreature(card.getBounds());
 	selectionRect.clear();
 	if (intersectedCreature != null) {
+		intersectedCreature.parent.add(selectionRect);
 		selectionRect.lineStyle(2, 0xFFFFFF, 1);
  		selectionRect.moveTo(-cardWidth/4-10, -cardHeight/4-10);
 		selectionRect.lineTo(-cardWidth/4-10, +cardHeight/4+10);
 		selectionRect.moveTo(cardWidth/4+10, -cardHeight/4-10);
 		selectionRect.lineTo(cardWidth/4+10, +cardHeight/4+10);
-		selectionRect.rotation = intersectedCreature.worldRotation;
-		selectionRect.x = intersectedCreature.getBounds().x+intersectedCreature.getBounds().width/2;
-		selectionRect.y = intersectedCreature.getBounds().y+intersectedCreature.getBounds().height/2;
+		selectionRect.x = intersectedCreature.x;
+		selectionRect.y = intersectedCreature.y;
 		game.world.bringToTop(selectionRect);
 	}
 }
@@ -422,7 +440,6 @@ Card = function(cardDTO, x, y) {
 	this.scale.setTo(0.5, 0.5);
 	game.physics.arcade.enable(this);
     this.inputEnabled = true;
-    this.input.enableDrag();
     this.id = cardDTO.Id;
     this.properties = cardDTO.Properties;
     this.flipped = false;
@@ -490,3 +507,17 @@ function myOnKeyPress(e) {
 		return false
 	}
 };
+
+function mouseMoveCallback(pointer, x, y) {
+	if (selectionArrow != null) {
+		var group = selectionArrow.arrow;
+		var angle = Math.atan((x-group.x)/(y-group.y));
+		if (group.y > y) {
+			angle += Math.PI;
+		}
+		if (y != group.y) {
+			group.rotation = - angle;
+		}
+		var sprite = group.getChildAt(0)
+	}
+}

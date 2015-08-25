@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"golang.org/x/net/websocket"
 	"log"
-	"fmt"
+	//"fmt"
 	"github.com/Andryyo/Evolution/EvolutionEngine"
 )
 
@@ -141,7 +141,9 @@ func (gl *GameLobby) Listen() {
 				gl.Game.RemoveObserver(client.notifyCh)
 				delete(gl.Observers, client.id)
 			} else {
-				client.player.Occupied = false
+				if client.player != nil {
+					client.player.Occupied = false
+				}
 				delete(gl.Players, client.id)
 			}
 		case <-gl.VoteCh:
@@ -159,6 +161,9 @@ func (gl *GameLobby) Listen() {
 }
 
 func (gl *GameLobby) StartGame() {
+	if len(gl.Players) != 0 {
+		return
+	}
 	gl.Game = EvolutionEngine.NewGame(len(gl.Players))
 	for _,client := range gl.Players {
 		client.voteStart = false

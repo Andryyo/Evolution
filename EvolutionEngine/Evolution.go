@@ -367,6 +367,9 @@ func (g *Game) InitializeDeck() {
 }
 
 func (g *Game) InitializePlayers(playersCount int) {
+	if playersCount == 0 {
+		return
+	}
 	g.PlayersCount = playersCount
 	g.Players = ring.New(g.PlayersCount)
 	for i := 0 ; i<g.PlayersCount; i++ {
