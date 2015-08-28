@@ -275,6 +275,9 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 						result = append(result, creature)
 					}
 					return OneOf{result}
+				case ACCESSOR_MODE_TRAITS:
+					container := instantiatedSource.(WithTraits)
+					return container.GetTraits()
 				default:
 					return nil
 			}
@@ -371,13 +374,6 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 					return reason.Arguments[PARAMETER_PHASE]
 				case FILTER_SOURCE_PARAMETER_SOURCE:
 					return reason.Arguments[PARAMETER_SOURCE]
-				case FILTER_SOURCE_PARAMETER_CREATURE_PROPERTIES:
-					creature := reason.Arguments[PARAMETER_CREATURE].(*Creature)
-					properties := make([]*Property, 0, len(creature.Tail))
-					for _,card := range creature.Tail {
-						properties = append(properties, card.ActiveProperty)
-					}
-					return properties
 				case FILTER_SOURCE_PARAMETER_FOOD_BANK_COUNT:
 					return game.Food
 				case FILTER_SOURCE_PARAMETER_CURRENT_PLAYER:

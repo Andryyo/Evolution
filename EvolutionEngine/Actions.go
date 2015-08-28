@@ -78,7 +78,7 @@ func (a Action) GoString() string {
 	case ACTION_HIBERNATE:
 		result += fmt.Sprintf("Hibernate creature %#v", a.Arguments[PARAMETER_CREATURE])
 	default:
-		result += fmt.Sprintf("%+v", a)
+		result += fmt.Sprintf("%#v", a.Type)
 	}
 	return result
 }

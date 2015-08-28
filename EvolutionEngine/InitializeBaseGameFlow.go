@@ -85,11 +85,32 @@ func (g *Game) InitializeBaseGameFlow() {
 			&FilterDeny{
 				NewANDCondition(
 					&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
-					NewConditionEqual(FILTER_SOURCE_PARAMETER_PROPERTY, InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}), //TODO : Not working because of pointers compartion
-					NewConditionEqual(FILTER_SOURCE_PARAMETER_PAIR, InstantiationOff{FILTER_SOURCE_PARAMETER_PAIR})),
+					NewConditionDeepEqual(
+						Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_TRAITS}, 
+						InstantiationOff{Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_TRAITS}}),
+					NewConditionDeepEqual(FILTER_SOURCE_PARAMETER_PAIR, InstantiationOff{FILTER_SOURCE_PARAMETER_PAIR})),
 				NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
+						
+	g.AddFilter(&FilterAction{
+		FILTER_ACTION_EXECUTE_AFTER,
+		NewANDCondition(
+			&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
+			&NOTCondition{NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_FAT_TISSUE}, 1)}),
+		nil,
+		NewActionAddFilters(
+			&FilterDeny{
+				NewANDCondition(
+					&ConditionActionType{ACTION_ADD_SINGLE_PROPERTY},
+					NewConditionDeepEqual(
+						Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_TRAITS}, 
+						InstantiationOff{Accessor{FILTER_SOURCE_PARAMETER_PROPERTY, ACCESSOR_MODE_TRAITS}}),
+					NewConditionDeepEqual(FILTER_SOURCE_PARAMETER_CREATURE, InstantiationOff{FILTER_SOURCE_PARAMETER_CREATURE})),
+				NewANDCondition(
+						&ConditionActionType{ACTION_REMOVE_PROPERTY},
+						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
+		
 	//Allow adding single properties in development phase
 	g.AddFilter(NewFilterAllow(
 		&ConditionPhase{PHASE_DEVELOPMENT}, 
@@ -109,9 +130,6 @@ func (g *Game) InitializeBaseGameFlow() {
 					NewANDCondition(
 						&NOTCondition{NewConditionEqual(Accessor{FILTER_SOURCE_PARAMETER_CREATURE, ACCESSOR_MODE_CREATURE_OWNER}, FILTER_SOURCE_PARAMETER_CURRENT_PLAYER)},
 						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PARASITE}, 0)),
-					NewANDCondition(
-						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_FAT_TISSUE}, 0),
-						&ConditionContains{FILTER_SOURCE_PARAMETER_CREATURE_PROPERTIES, FILTER_SOURCE_PARAMETER_PROPERTY}),
 					NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_PAIR}, 1),
 					NewANDCondition(
 						NewConditionEqual(TraitsCount{FILTER_SOURCE_PARAMETER_PROPERTY, TRAIT_SCAVENGER}, 1),

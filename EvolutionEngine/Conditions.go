@@ -94,6 +94,7 @@ func (c *ORCondition) InstantiateFilterPrototypeCondition(game *Game, reason *Ac
 }
 
 type ConditionEqual struct {
+	deepEqual bool
 	sources []Source
 }
 
@@ -102,43 +103,21 @@ func (c *ConditionEqual) CheckCondition(game *Game, action *Action) bool {
 	if condition, ok := instantiatedCondition.(*ConditionEqual) ; !ok {
 		return instantiatedCondition.CheckCondition(game, action)
 	} else {
-	for i := 1; i<len(condition.sources) ; i++ {
-			if reflect.TypeOf(condition.sources[i-1]) != reflect.TypeOf(condition.sources[i]) {
-				return false
-			}
-			switch condition.sources[i].(type) {
-				case []*Creature:
-					firstSources := condition.sources[i-1].([]*Creature)
-					secondSources := condition.sources[i].([]*Creature)
-					if len(firstSources) != len(secondSources) {
-						return false
-					}
-					equals := false
-					for _,firstSource := range firstSources {
-						equals = false
-						for _,secondSource := range secondSources {
-							if firstSource == secondSource {
-								equals = true
-								break
-							}
-						}
-						if !equals {
-							return false
-						}
-					}
-				/*case *Property:
-					firstSource := condition.sources[i-1].(*Property)
-					secondSource := condition.sources[i].(*Property)
-					if !firstSource.equals(secondSource) {
-						return false
-					}*/
-				default:
-					if condition.sources[i-1] != condition.sources[i] {
-						return false
-					}
-			}
+		if condition.deepEqual {
+			for i := 1; i<len(condition.sources) ; i++ {
+				if !reflect.DeepEqual(condition.sources[i-1], condition.sources[i]) {
+					return false
+				}
+			}	
+			return true
+		} else {
+			for i := 1; i<len(condition.sources) ; i++ {
+				if condition.sources[i-1] != condition.sources[i] {
+					return false
+				}
+			}	
+			return true
 		}
-		return true
 	}
 }
 
@@ -168,7 +147,7 @@ func (c *ConditionEqual) InstantiateFilterPrototypeCondition(game *Game, reason 
 				oneOf := instantiatedSource.(OneOf)
 				conditions := make([]Condition, 0, len(oneOf.Sources))
 				for _, o := range oneOf.Sources {
-					condition := &ConditionEqual{make([]Source,0,len(c.sources))}
+					condition := &ConditionEqual{c.deepEqual, make([]Source,0,len(c.sources))}
 					for _, c := range c.sources {
 						condition.sources = append(condition.sources, c)
 					}
@@ -180,7 +159,7 @@ func (c *ConditionEqual) InstantiateFilterPrototypeCondition(game *Game, reason 
 				all := instantiatedSource.(AllOf)
 				conditions := make([]Condition, 0, len(all.Sources))
 				for _, o := range all.Sources {
-					condition := &ConditionEqual{make([]Source,0,len(c.sources))}
+					condition := &ConditionEqual{c.deepEqual, make([]Source,0,len(c.sources))}
 					for _, c := range c.sources {
 						condition.sources = append(condition.sources, c)
 					}
@@ -190,11 +169,15 @@ func (c *ConditionEqual) InstantiateFilterPrototypeCondition(game *Game, reason 
 				return NewANDCondition(conditions...)
 		}
 	}
-	return &ConditionEqual{instantiatedSources}
+	return &ConditionEqual{c.deepEqual, instantiatedSources}
 }
 
 func NewConditionEqual(sources ...Source) Condition {
-	return &ConditionEqual{sources}
+	return &ConditionEqual{false, sources}
+}
+
+func NewConditionDeepEqual(sources ...Source) Condition {
+	return &ConditionEqual{true, sources}
 }
 
 type ConditionActionType struct {
@@ -278,52 +261,4 @@ func (c ConditionActionDenied) GoString() string {
 
 func (c *ConditionActionDenied) InstantiateFilterPrototypeCondition(game *Game, reason *Action, instantiate bool) (condition Condition) {
 	return &ConditionActionDenied{c.action.InstantiateFilterPrototypeAction(game, reason, instantiate)}
-}
-
-type ConditionContains struct {
-	container Source
-	element Source
-}
-
-func (c *ConditionContains) CheckCondition(game *Game, action *Action) bool {
-	container := InstantiateFilterSourcePrototype(game, action, c.container, true)
-	element := InstantiateFilterSourcePrototype(game, action, c.element, true)
-	if reflect.SliceOf(reflect.TypeOf(element)) != reflect.TypeOf(container) {
-		return false
-	}
-	switch element.(type) {
-		case TraitType:
-			trait := element.(TraitType)
-			traits := container.([]TraitType)
-			for _,t := range traits {
-				if t == trait {
-					return true
-				}
-			}
-		case *Property:
-			property := element.(*Property)
-			properties := container.([]*Property)
-			for _, p := range properties {
-				if p.equals(property) {
-					return true
-				}
-			}
-	}
-	return false
-}
-
-func (c ConditionContains) GoString() string {
-	return fmt.Sprintf("(%#v contains %#v)", c.container, c.element)
-}
-
-func (c *ConditionContains) InstantiateFilterPrototypeCondition(game *Game, reason *Action, instantiate bool) (condition Condition) {
-	if c == nil {
-		return c
-	}
-	defer func() {
-		if r := recover(); r!=nil {
-			condition = &ConditionFalse{}
-		}
-	} ()
-	return &ConditionContains{InstantiateFilterSourcePrototype(game, reason, c.container, instantiate), InstantiateFilterSourcePrototype(game, reason, c.element, instantiate)}
 }

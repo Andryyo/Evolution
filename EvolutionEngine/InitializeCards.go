@@ -74,14 +74,6 @@ func (g *Game) InitializeCardsFilters() {
 						NewConditionEqual(InstantiationOff{TraitsCount{InstantiationOn{FILTER_SOURCE_PARAMETER_LEFT_CREATURE}, TRAIT_FED}}, 0)),
 					NewANDCondition(
 						&ConditionActionType{ACTION_REMOVE_PROPERTY},
-						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))},
-				&FilterDeny{
-					NewANDCondition(
-						&ConditionActionType{ACTION_ADD_PAIR_PROPERTY},
-						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY),
-						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PAIR}, FILTER_SOURCE_PARAMETER_PAIR)),
-					NewANDCondition(
-						&ConditionActionType{ACTION_REMOVE_PROPERTY},
 						NewConditionEqual(InstantiationOff{FILTER_SOURCE_PARAMETER_PROPERTY}, FILTER_SOURCE_PARAMETER_PROPERTY))})})
 	
 	//piracy
@@ -340,11 +332,6 @@ func (g *Game) InitializeCardsFilters() {
 			NewConditionEqual(FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT, 0)),
 		nil})
 
-	g.AddFilter(&FilterDeny{
-		NewANDCondition(
-			&ConditionActionType{ACTION_HIBERNATE},
-			NewConditionEqual(FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT, 0)),
-		nil})
 	//Poisonous
 	g.AddFilter(&FilterAction{
 		FILTER_ACTION_EXECUTE_AFTER,

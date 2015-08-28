@@ -2,7 +2,7 @@ var game = new Phaser.Game(1000, 800, Phaser.AUTO, 'game_holder', { preload: pre
 var gameOverlay;
 var cardHeight = 254;
 var cardWidth = 182;
-var cardEdgeWidth = 38;
+var cardEdgeWidth = 40;
 var controlAreaWidth = 170;
 var handArea;
 var mainArea;
@@ -14,7 +14,6 @@ var availableActions = null;
 var currentPlayerId;
 var playerId;
 var selectionRect;
-var socket;
 var voteStart = false;
 var selectionArrow;
 var selectionRect = null;
@@ -64,103 +63,13 @@ function create() {
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
-	//socket = new WebSocket("ws://127.0.0.1:8081/socket");
-	//socket = new WebSocket("ws://93.188.39.118:8081/socket");
-	socket = new WebSocket("ws://82.193.120.243:80/socket");
-	socket.onopen = onSocketOpen;
-	socket.onmessage = onSocketMessage;
-}
-
-function vote() {
-	voteStart = !voteStart;
-	var message = {
-    		Type: MESSAGE_VOTE_START,
-    		Value: voteStart
-    	};
-    socket.send(JSON.stringify(message));
-}
-
-function pass() {
-	if (availableActions == null) {
-		return false;
-	};
-	var action = {
-		Type: "Pass",
-		Arguments: {}
-	};
-	return executeAction(action)
-}
-
-function endTurn() {
-	if (availableActions == null) {
-		return false;
-	};
-	var action = {
-		Type: "End turn",
-		Arguments: {}
-	};
-	return executeAction(action)
 }
 
 function update() {
-	if (hand!= null) {
-		hand.forEach(function(card) {
-			if (card.input.overDuration() > 500 && !card.input.isDragged) {
-				if (!card.flipped) {
-                	card.scale.y = 1;
-                	card.scale.x = 1;
-                } else {
-                	card.scale.x = -1;
-                	card.scale.y = -1;
-                }
-
-			}
-		}, this);
-	}
 }
 
 function render() {
 }
-
-function onSocketOpen(event) {
-	var textArea = document.getElementById("log");
-    textArea.value = "";
-};
-
-function onSocketMessage(event) {
-	var textArea = document.getElementById("log");
-	textArea.value = textArea.value + '\n' + event.data;
-	textArea.scrollTop = textArea.scrollHeight;
-	var obj = JSON.parse(event.data);
-	if (obj.Type == MESSAGE_EXECUTED_ACTION) {
-		showAction(obj.Value);
-	}
-	if (obj.Type == MESSAGE_CHOICES_LIST) {
-		updateGameState(obj.Value.State)
-		availableActions = obj.Value.Actions;
-	}
-	if (obj.Type == MESSAGE_LOBBIES_LIST) {
-		updateLobbiesList(obj.Value);
-	}
-};
-
-function connectToLobby(lobbyId) {
-	var playerId = localStorage.getItem("PlayerId")
-	message = {
-		Type: MESSAGE_JOIN_LOBBY,
-		Value: {
-			LobbyId: lobbyId,
-			PlayerId: playerId
-		}}
-	socket.send(JSON.stringify(message))
-};
-
-function createLobby() {
-	message = {
-		Type: MESSAGE_NEW_LOBBY,
-		Value: null}
-	socket.send(JSON.stringify(message))
-};
 
 function updateLobbiesList(lobbies) {
 	var select = document.getElementById("lobbies");
@@ -180,115 +89,6 @@ function updateLobbiesList(lobbies) {
 		select.appendChild(option);
 	}
 };
-
-function executeAction(action) {
-	if (availableActions == null) {
-		return false;
-	}
-	for (var i in availableActions) {
-		var tmp1 = JSON.stringify(action);
-		var tmp2 = JSON.stringify(availableActions[i]);
-		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
-			availableActions = null;
-			response = {
-				Type: MESSAGE_CHOICE_NUM,
-				Value:i
-			}
-			socket.send(JSON.stringify(response));
-			return true;
-		}
-	}
-	return false;
-}
-
-function executeAddCreatureAction(cardId) {
-	var action = {
-		Type: "Add creature",
-		Arguments: {
-			Card: cardId,
-			Player: currentPlayerId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeAddPropertyAction(creatureId, propertyId) {
-	var action = {
-		Type: "Add single property",
-		Arguments: {
-			Creature: creatureId,
-			Property: propertyId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propertyId) {
-	var action = {
-		Type: "Add pair property",
-		Arguments: {
-			Pair: [
-				firstCreatureId,
-				secondCreatureId
-			],
-			Property: propertyId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionGrazing(propertyId) {
-	var action = {
-		Type: "Destroy bank food",
-		Arguments: {
-			Property: propertyId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionHibernation(creatureId) {
-	var action = {
-		Type: "Hibernate",
-		Arguments: {
-			Creature: creatureId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionAttack(playerId, sourceCreatureId, targetCreatureId) {
-	var action = {
-		Type: "Attack",
-		Arguments: {
-			Player: playerId,
-			SourceCreature: sourceCreatureId,
-			TargetCreature: targetCreatureId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionPiracy(sourceCreatureId, targetCreatureId, trait) {
-	var action = {
-		Type: "Piracy",
-		Arguments: {
-			SourceCreature: sourceCreatureId,
-			TargetCreature: targetCreatureId,
-			Trait: trait
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionGrabFood(creatureId) {
-	var action = {
-		Type: "Get food from bank",
-		Arguments: {
-			Creature: creatureId
-		}};
-	return executeAction(action);
-}
 
 function showAction(action) {
 	updateGameState(action.State)
@@ -372,9 +172,9 @@ PlayerCreatures = function(playerDTO, x, y, angle) {
 	this.x = x;
 	this.y = y;
 	this.angle = angle;
-	var totalCreatureWidthHalf = cardWidth/2 * playerDTO.Creatures.length/2;
+	var totalCreatureWidthHalf = (cardWidth/2+cardEdgeWidth/2) * playerDTO.Creatures.length/2;
 	for (var i in playerDTO.Creatures) {
-		var creature = new Creature(playerDTO.Creatures[i], (+i + +1)*cardWidth/2-totalCreatureWidthHalf, 0);
+		var creature = new Creature(playerDTO.Creatures[i], (+i + +1)*(cardWidth/2 + cardEdgeWidth/2)-totalCreatureWidthHalf, 0);
 		game.add.existing(creature);
 		this.add(creature);
 	}
@@ -473,13 +273,13 @@ function propertyOver(card, pointer) {
 		card.parent.parent.add(card.selection);
 		var creature = card.parent;
 		card.selection.lineStyle(1, 0x000000, 1);
-		card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + card.position.y - cardHeight/4  + 4 , cardWidth/2-8, cardEdgeWidth/2-8, 3);
+		card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + card.position.y - cardHeight/4  + 4 , cardWidth/2-8, cardEdgeWidth/2-5, 3);
 		var property = card.getActiveProperty();
 		if (property.pair) {
 			var pairCard = getPairProperty(card);
 			if (pairCard != null) {
 				var creature = pairCard.parent;
-				card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + pairCard.position.y - cardHeight/4 + 4, cardWidth/2-8, cardEdgeWidth/2-8, 3);
+				card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + pairCard.position.y - cardHeight/4 + 4, cardWidth/2-8, cardEdgeWidth/2-5, 3);
 			}
 		}
 	}
@@ -502,32 +302,23 @@ function propertyOut(card, pointer) {
 
 function cardOver(card, pointer) {
 	card.bringToTop();
+    card.scale.y = 1;
+    card.scale.x = 1;
 }
 
 function cardUp(card, pointer) {
 	if (card.input.pointerTimeUp()-card.input.pointerTimeDown() < 70) {
 		card.flipped = !card.flipped;
-		card.scale.y *= -1;
-		card.scale.x *= -1;
+		card.rotation = Math.PI - card.rotation;
 	}
 }
 
 function cardOut(card, pointer) {
-	card.anchor.y = 0.5;
-	if (!card.flipped) {
-    	card.scale.setTo(0.5, 0.5);
-    } else {
-    	card.scale.setTo(-0.5, -0.5);
-    }
+    card.scale.setTo(0.5, 0.5);
 }
 
 function cardDragStart(card) {
-	card.anchor.y = 0.5;
-	if (!card.flipped) {
-    	card.scale.setTo(0.5, 0.5);
-    } else {
-    	card.scale.setTo(-0.5, -0.5);
-    }
+	card.scale.setTo(0.5, 0.5);
 }
 
 function cardDragStop(card) {
@@ -662,8 +453,7 @@ Card = function(cardDTO, x, y) {
     this.flipped = false;
 	if (cardDTO.ActiveProperty.Id != cardDTO.Properties[0].Id) {
 		this.flipped = true;
-		this.scale.y *= -1;
-		this.scale.x *= -1;
+		this.rotation = Math.PI - this.rotation;
 	}
 	this.getActiveProperty = function() {
 		if (this.properties.length == 1 || !this.flipped) {
