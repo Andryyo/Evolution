@@ -56,9 +56,11 @@ function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propert
 	var action = {
 		Type: "Add pair property",
 		Arguments: {
-			FirstCreature: firstCreatureId,
-			Property: propertyId,
-			SecondCreature:	secondCreatureId,
+			Pair: [
+				firstCreatureId,
+				secondCreatureId
+			],
+			Property: propertyId
 		}
 	};
 	return executeAction(action);

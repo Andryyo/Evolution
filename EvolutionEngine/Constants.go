@@ -22,8 +22,9 @@ const (
 	FILTER_SOURCE_PARAMETER_CREATURE
 	FILTER_SOURCE_PARAMETER_TRAIT
 	FILTER_SOURCE_PARAMETER_ALL_PLAYERS
-	FILTER_SOURCE_PARAMETER_FIRST_CREATURE
-	FILTER_SOURCE_PARAMETER_SECOND_CREATURE
+	FILTER_SOURCE_PARAMETER_LEFT_CREATURE
+	FILTER_SOURCE_PARAMETER_RIGHT_CREATURE
+	FILTER_SOURCE_PARAMETER_PAIR
 	FILTER_SOURCE_PARAMETER_ANY_FOOD
 	FILTER_SOURCE_PARAMETER_ALL_FOOD
 	FILTER_SOURCE_PARAMETER_FOOD_AND_FAT_LIMIT
@@ -59,6 +60,10 @@ func (t FilterSourcePrototype) GoString() string {
 			return "Trait"
 		case FILTER_SOURCE_PARAMETER_ALL_PLAYERS:
 			return "All players"
+		case FILTER_SOURCE_PARAMETER_RIGHT_CREATURE:
+			return "Second creature in pair"
+		case FILTER_SOURCE_PARAMETER_LEFT_CREATURE:
+			return "First creature in pait"
 		case FILTER_SOURCE_PARAMETER_ANY_FOOD:
 			return "Any food"
 		case FILTER_SOURCE_PARAMETER_ALL_FOOD:
@@ -67,6 +72,8 @@ func (t FilterSourcePrototype) GoString() string {
 			return "Food and fat"
 		case FILTER_SOURCE_PARAMETER_SOURCE:
 			return "Source"
+		case FILTER_SOURCE_PARAMETER_PAIR:
+			return "Pair"
 		case FILTER_SOURCE_PARAMETER_FOOD_BANK_COUNT:
 			return "Food in bank"
 		case FILTER_SOURCE_PARAMETER_CURRENT_PLAYER:
@@ -81,10 +88,6 @@ func (t FilterSourcePrototype) GoString() string {
 			return "Player creature"
 		case FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES:
 			return "One of creatures"
-		case FILTER_SOURCE_PARAMETER_FIRST_CREATURE:
-			return "First creature"
-		case FILTER_SOURCE_PARAMETER_SECOND_CREATURE:
-			return "Second creature"
 		default:
 			return string(t)
 	}
@@ -177,6 +180,7 @@ const (
 	PARAMETER_PROPERTY ArgumentName = "Property"
 	PARAMETER_PHASE ArgumentName = "Phase"
 	PARAMETER_PLAYER ArgumentName = "Player"
+	PARAMETER_PAIR ArgumentName = "Pair"
 	PARAMETER_CARD ArgumentName = "Card"
 	PARAMETER_ACTIONS ArgumentName = "Actions"
 	PARAMETER_CREATURE ArgumentName = "Creature"
@@ -185,8 +189,6 @@ const (
 	PARAMETER_FILTERS ArgumentName = "Filters"
 	PARAMETER_SOURCE_CREATURE ArgumentName = "SourceCreature"
 	PARAMETER_TARGET_CREATURE ArgumentName = "TargetCreature"
-	PARAMETER_FIRST_CREATURE ArgumentName = "FirstCreature"
-	PARAMETER_SECOND_CREATURE ArgumentName = "SecondCreature"
 	PARAMETER_COUNT ArgumentName = "Count"
 )
 
