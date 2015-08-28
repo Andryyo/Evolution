@@ -356,12 +356,10 @@ func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Sour
 						result = append(result, player.(*Player))
 					})
 					return AllOf{result}
-				case FILTER_SOURCE_PARAMETER_LEFT_CREATURE:
-					return reason.Arguments[PARAMETER_PAIR].([]*Creature)[0]
-				case FILTER_SOURCE_PARAMETER_RIGHT_CREATURE:
-					return reason.Arguments[PARAMETER_PAIR].([]*Creature)[1]
-				case FILTER_SOURCE_PARAMETER_PAIR:
-					return reason.Arguments[PARAMETER_PAIR]		
+				case FILTER_SOURCE_PARAMETER_FIRST_CREATURE:
+					return reason.Arguments[PARAMETER_FIRST_CREATURE].(*Creature)
+				case FILTER_SOURCE_PARAMETER_SECOND_CREATURE:
+					return reason.Arguments[PARAMETER_SECOND_CREATURE].(*Creature)
 				case FILTER_SOURCE_PARAMETER_ANY_FOOD:
 					return OneOf{[]Source{TRAIT_FOOD, TRAIT_ADDITIONAL_FOOD}}
 				case FILTER_SOURCE_PARAMETER_ALL_FOOD:
