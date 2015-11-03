@@ -16,16 +16,7 @@ function onSocketMessage(event) {
 	textArea.value = textArea.value + '\n' + event.data;
 	textArea.scrollTop = textArea.scrollHeight;
 	var obj = JSON.parse(event.data);
-	if (obj.Type == MESSAGE_EXECUTED_ACTION) {
-		showAction(obj.Value);
-	}
-	if (obj.Type == MESSAGE_CHOICES_LIST) {
-		updateGameState(obj.Value.State)
-		availableActions = obj.Value.Actions;
-	}
-	if (obj.Type == MESSAGE_LOBBIES_LIST) {
-		updateLobbiesList(obj.Value);
-	}
+	addMessage(obj);
 };
 
 function connectToLobby(lobbyId) {
