@@ -14,10 +14,12 @@ var availableActions = null;
 var currentPlayerId;
 var playerId;
 var selectionRect;
-var socket;
 var voteStart = false;
 var selectionArrow;
 var selectionRect = null;
+var currentGameState = null;
+var messagesQueue = [];
+var messageInProcessing = null;
 
 var MESSAGE_EXECUTED_ACTION = 0
 var MESSAGE_CHOICES_LIST = 1
@@ -64,45 +66,63 @@ function create() {
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
-	//socket = new WebSocket("ws://127.0.0.1:8081/socket");
-	//socket = new WebSocket("ws://93.188.39.118:8081/socket");
-	socket = new WebSocket("ws://82.193.120.243:80/socket");
-	socket.onopen = onSocketOpen;
-	socket.onmessage = onSocketMessage;
 }
 
-function vote() {
-	voteStart = !voteStart;
-	var message = {
-    		Type: MESSAGE_VOTE_START,
-    		Value: voteStart
-    	};
-    socket.send(JSON.stringify(message));
+function addMessage(message) {
+	messagesQueue.push(message);
 }
 
-function pass() {
-	if (availableActions == null) {
-		return false;
-	};
-	var action = {
-		Type: "Pass",
-		Arguments: {}
-	};
-	return executeAction(action)
+function processMessage(message) {
+	if (message.Type == MESSAGE_EXECUTED_ACTION) {
+		showAction(message.Value);
+		updateGameState(message.Value.State)
+		return
+	}
+	if (message.Type == MESSAGE_CHOICES_LIST) {
+		updateGameState(message.Value.State)
+		availableActions = message.Value.Actions;
+		messageInProcessing = null;
+		return
+	}
+	if (message.Type == MESSAGE_LOBBIES_LIST) {
+		updateLobbiesList(message.Value);
+		messageInProcessing = null;
+		return
+	}
+	updateGameState(message.Value.State)
 }
 
-function endTurn() {
-	if (availableActions == null) {
-		return false;
-	};
-	var action = {
-		Type: "End turn",
-		Arguments: {}
-	};
-	return executeAction(action)
+
+function updateGameState(state) {
+	/*if (currentGameState == null) {
+		currentGameState = state;
+		//initGameState(state);
+		return
+	}*/
+	currentPlayerId=state.CurrentPlayerId;
+	playerId = state.PlayerId;
+	currentGameState = state;
+	localStorage.setItem("PlayerId", playerId);
+	updateFoodBank(state.FoodBank);
+	updatePlayers(state.Players);
+	updateHand(state.PlayerCards);
+}
+
+function showAction(msg) {
+	switch(msg.Action.Type) {
+		case "Add creature":
+			var player = findPlayer(msg.Action.Value.Player)
+			break;	
+		default:
+			messageInProcessing = null;
+	}
 }
 
 function update() {
+	if (messageInProcessing == null && messagesQueue.length != 0) {
+		messageInProcessing = messagesQueue.shift();
+		processMessage(messageInProcessing);
+	}
 	if (hand!= null) {
 		hand.forEach(function(card) {
 			if (card.input.overDuration() > 500 && !card.input.isDragged) {
@@ -121,46 +141,6 @@ function update() {
 
 function render() {
 }
-
-function onSocketOpen(event) {
-	var textArea = document.getElementById("log");
-    textArea.value = "";
-};
-
-function onSocketMessage(event) {
-	var textArea = document.getElementById("log");
-	textArea.value = textArea.value + '\n' + event.data;
-	textArea.scrollTop = textArea.scrollHeight;
-	var obj = JSON.parse(event.data);
-	if (obj.Type == MESSAGE_EXECUTED_ACTION) {
-		showAction(obj.Value);
-	}
-	if (obj.Type == MESSAGE_CHOICES_LIST) {
-		updateGameState(obj.Value.State)
-		availableActions = obj.Value.Actions;
-	}
-	if (obj.Type == MESSAGE_LOBBIES_LIST) {
-		updateLobbiesList(obj.Value);
-	}
-};
-
-function connectToLobby(lobbyId) {
-	var playerId = localStorage.getItem("PlayerId")
-	message = {
-		Type: MESSAGE_JOIN_LOBBY,
-		Value: {
-			LobbyId: lobbyId,
-			PlayerId: playerId
-		}}
-	socket.send(JSON.stringify(message))
-};
-
-function createLobby() {
-	message = {
-		Type: MESSAGE_NEW_LOBBY,
-		Value: null}
-	socket.send(JSON.stringify(message))
-};
 
 function updateLobbiesList(lobbies) {
 	var select = document.getElementById("lobbies");
@@ -181,128 +161,6 @@ function updateLobbiesList(lobbies) {
 	}
 };
 
-function executeAction(action) {
-	if (availableActions == null) {
-		return false;
-	}
-	for (var i in availableActions) {
-		var tmp1 = JSON.stringify(action);
-		var tmp2 = JSON.stringify(availableActions[i]);
-		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
-			availableActions = null;
-			response = {
-				Type: MESSAGE_CHOICE_NUM,
-				Value:i
-			}
-			socket.send(JSON.stringify(response));
-			return true;
-		}
-	}
-	return false;
-}
-
-function executeAddCreatureAction(cardId) {
-	var action = {
-		Type: "Add creature",
-		Arguments: {
-			Card: cardId,
-			Player: currentPlayerId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeAddPropertyAction(creatureId, propertyId) {
-	var action = {
-		Type: "Add single property",
-		Arguments: {
-			Creature: creatureId,
-			Property: propertyId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propertyId) {
-	var action = {
-		Type: "Add pair property",
-		Arguments: {
-			Pair: [
-				firstCreatureId,
-				secondCreatureId
-			],
-			Property: propertyId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionGrazing(propertyId) {
-	var action = {
-		Type: "Destroy bank food",
-		Arguments: {
-			Property: propertyId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionHibernation(creatureId) {
-	var action = {
-		Type: "Hibernate",
-		Arguments: {
-			Creature: creatureId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionAttack(playerId, sourceCreatureId, targetCreatureId) {
-	var action = {
-		Type: "Attack",
-		Arguments: {
-			Player: playerId,
-			SourceCreature: sourceCreatureId,
-			TargetCreature: targetCreatureId
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionPiracy(sourceCreatureId, targetCreatureId, trait) {
-	var action = {
-		Type: "Piracy",
-		Arguments: {
-			SourceCreature: sourceCreatureId,
-			TargetCreature: targetCreatureId,
-			Trait: trait
-		}
-	};
-	return executeAction(action);
-}
-
-function executeActionGrabFood(creatureId) {
-	var action = {
-		Type: "Get food from bank",
-		Arguments: {
-			Creature: creatureId
-		}};
-	return executeAction(action);
-}
-
-function showAction(action) {
-	updateGameState(action.State)
-}
-
-function updateGameState(state) {
-	currentPlayerId=state.CurrentPlayerId;
-	playerId = state.PlayerId;
-	localStorage.setItem("PlayerId", playerId);
-	updateFoodBank(state.FoodBank);
-	updatePlayers(state.Players);
-	updateHand(state.PlayerCards);
-}
-
 function updateFoodBank(count) {
 	foodBank.clear();
 	foodBank.beginFill(0xFF0000, 1);
@@ -315,15 +173,8 @@ function updateFoodBank(count) {
 
 function updateHand(handDTO) {
 	hand.removeAll(true);
-	var y = handArea.halfHeight;
-	var startX = (handArea.width-(cardWidth*handDTO.length/2*3/2))/2;
-	if (startX < 0) {
-		startX = cardWidth/4;
-	}
-	var offset = (handArea.width-startX*2)/(handDTO.length);
-	
 	for (var i in handDTO) {
-		var card = new Card(handDTO[i], startX + (+i + +0.5)*offset, y);
+		var card = new Card(handDTO[i], 0, 0);
 		card.events.onInputOver.add(cardOver, card);
     	card.events.onInputOut.add(cardOut, card);
 	    card.events.onInputUp.add(cardUp, card);
@@ -332,6 +183,21 @@ function updateHand(handDTO) {
 	    card.events.onDragUpdate.add(cardDragUpdate, card);
 	    card.input.enableDrag();
 		hand.add(card);
+	}
+	arrangeCardsInHand();
+}
+
+function arrangeCardsInHand() {
+	var y = handArea.halfHeight;
+	var startX = (handArea.width-(cardWidth*hand.children.length/2*3/2))/2;
+	if (startX < 0) {
+		startX = cardWidth/4;
+	}
+	var offset = (handArea.width-startX*2)/(hand.children.length);
+	
+	for (var i in hand.children) {
+		hand.getChildAt(i).x = startX + (+i + +0.5)*offset;
+		hand.getChildAt(i).y = y;
 	}
 }
 
@@ -342,28 +208,43 @@ function updatePlayers(playersDTO) {
 	}
 	players.removeAll(true);
 	var startAngle = 180;
-	var deltaAngle = 360/playersDTO.length;
+	var deltaAngle = 360/Object.keys(playersDTO).length;
 	var radiusX = mainArea.halfWidth - cardHeight/4;
 	var radiusY = mainArea.halfHeight - cardHeight/4;
 	var playerIndex = 0;
 	for (var i in playersDTO) {
 		if (playersDTO[i].Id == playerId) {
-			playerIndex = i;
+			var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth, mainArea.halfHeight+radiusY, 0)
+    		game.add.existing(playersCreatures);
+    		players.add(playersCreatures);
 			break;
 		}
 	}
 	var angle = 0;
-	for (var i = playerIndex; i<playersDTO.length; i++) {
+	for (var i in playersDTO) {
+		if (playersDTO[i].Id == playerId) {
+			continue;	
+		}
+		angle += deltaAngle;
 		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radiusX, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radiusY, angle)
         game.add.existing(playersCreatures);
         players.add(playersCreatures);
-        angle += deltaAngle;
 	}
-	for (var i = 0; i<playerIndex; i++) {
-		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radiusX, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radiusY, angle)
-        game.add.existing(playersCreatures);
-        players.add(playersCreatures);
-        angle += deltaAngle;
+}
+
+function findPlayer(id) {
+	for (var i in players.children) {
+		if (players.getChildAt(i).Id == id) {
+			return players.getChildAt(i);
+		}
+	}
+}
+
+function findCardInHand(id) {
+	for (var i in hand.children) {
+		if (hand.getChildAt(i).Id == id) {
+			return hand.getChildAt(i);
+		}
 	}
 }
 
@@ -372,7 +253,7 @@ PlayerCreatures = function(playerDTO, x, y, angle) {
 	this.x = x;
 	this.y = y;
 	this.angle = angle;
-	var totalCreatureWidthHalf = cardWidth/2 * playerDTO.Creatures.length/2;
+	var totalCreatureWidthHalf = cardWidth/2 * Object.keys(playerDTO.Creatures).length/2;
 	for (var i in playerDTO.Creatures) {
 		var creature = new Creature(playerDTO.Creatures[i], (+i + +1)*cardWidth/2-totalCreatureWidthHalf, 0);
 		game.add.existing(creature);

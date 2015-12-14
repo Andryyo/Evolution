@@ -207,8 +207,8 @@ type GameStateDTO struct {
 	CardsInDesk int
 	CurrentPlayerId string
 	PlayerId string
-	PlayerCards []CardDTO
-	Players []PlayerDTO
+	PlayerCards map[string]CardDTO
+	Players map[string]PlayerDTO
 }
 
 func NewGameStateDTO(player *EvolutionEngine.Player, game *EvolutionEngine.Game) GameStateDTO {
@@ -217,18 +217,20 @@ func NewGameStateDTO(player *EvolutionEngine.Player, game *EvolutionEngine.Game)
 	state.FoodBank = game.Food
 	state.CardsInDesk = len(game.Deck)
 	if (player != nil) {
-		state.PlayerCards = make([]CardDTO, 0, len(player.Cards))
+		state.PlayerCards = make(map[string]CardDTO)
 		state.PlayerId = fmt.Sprintf("%p", player)
 		for _,card := range player.Cards {
-			state.PlayerCards = append(state.PlayerCards, NewCardDTO(card))
+			cardDTO := NewCardDTO(card)
+			state.PlayerCards[cardDTO.Id] = cardDTO
 		}
 	} else {
-		state.PlayerCards = make([]CardDTO, 0)
+		state.PlayerCards = make(map[string]CardDTO, 0)
 	}
 	state.CurrentPlayerId = fmt.Sprintf("%p", game.CurrentPlayer)
-	state.Players = make([]PlayerDTO, 0, game.PlayersCount)
+	state.Players = make(map[string]PlayerDTO)
 	game.Players.Do(func (val interface{}) {
-		state.Players = append(state.Players, NewPlayerDTO(val.(*EvolutionEngine.Player)))
+		player := NewPlayerDTO(val.(*EvolutionEngine.Player))
+		state.Players[player.Id] = player
 	})
 	return state
 }
@@ -261,15 +263,16 @@ func NewPropertyDTO(property *EvolutionEngine.Property) PropertyDTO {
 
 type PlayerDTO struct {
 	Id string
-	Creatures []CreatureDTO
+	Creatures map[string]CreatureDTO
 }
 
 func NewPlayerDTO(player *EvolutionEngine.Player) PlayerDTO {
 	playerDTO := PlayerDTO{}
 	playerDTO.Id = fmt.Sprintf("%p", player)
-	playerDTO.Creatures = make([]CreatureDTO, 0, len(player.Creatures))
+	playerDTO.Creatures = make(map[string]CreatureDTO)
 	for _,creature := range player.Creatures {
-		playerDTO.Creatures = append(playerDTO.Creatures, NewCreatureDTO(creature))
+		creature := NewCreatureDTO(creature)
+		playerDTO.Creatures[creature.Id] = creature
 	}
 	return playerDTO
 }
