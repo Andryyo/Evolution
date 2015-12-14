@@ -85,6 +85,26 @@ type Property struct {
 	Traits         []TraitType
 }
 
+func (p *Property) equals(property *Property) bool {
+	if len(p.Traits) != len(property.Traits) {
+		return false
+	}
+	equals := false
+	for _,firstTrait := range p.Traits {
+		equals = false
+		for _,secondTrait := range property.Traits {
+			if firstTrait == secondTrait {
+				equals = true
+				break
+			}
+		}
+		if !equals {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Property) AddTrait(trait TraitType) {
 	c.Traits = append(c.Traits, trait)
 }

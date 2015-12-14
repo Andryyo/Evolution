@@ -26,11 +26,10 @@ func (a Action) GoString() string {
 		card := property.ContainingCard
 		result += fmt.Sprintf("Add property %#v on card %#v to creature %#v", property, card, creature)
 	case ACTION_ADD_PAIR_PROPERTY:
-		firstCreature := a.Arguments[PARAMETER_FIRST_CREATURE].(*Creature)
-		secondCreature := a.Arguments[PARAMETER_SECOND_CREATURE].(*Creature)
+		creatures := a.Arguments[PARAMETER_PAIR].([]*Creature)
 		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
 		card := property.ContainingCard
-		result += fmt.Sprintf("Add property %#v on card %#v to creatures %#v and %#v", property, card, firstCreature, secondCreature)
+		result += fmt.Sprintf("Add property %#v on card %#v to creatures %#v and %#v", property, card, creatures[0], creatures[1])
 	case ACTION_NEXT_PLAYER:
 		result += "Next player"
 	case ACTION_PASS:
@@ -79,7 +78,7 @@ func (a Action) GoString() string {
 	case ACTION_HIBERNATE:
 		result += fmt.Sprintf("Hibernate creature %#v", a.Arguments[PARAMETER_CREATURE])
 	default:
-		result += fmt.Sprintf("%#v", a.Type)
+		result += fmt.Sprintf("%+v", a)
 	}
 	return result
 }
@@ -144,16 +143,15 @@ func (a *Action) Execute(game *Game) {
 		creature.Tail = append(creature.Tail, card)
 		card.Owners = []Source{creature}
 	case ACTION_ADD_PAIR_PROPERTY:
-		firstCreature := a.Arguments[PARAMETER_FIRST_CREATURE].(*Creature)
-		secondCreature := a.Arguments[PARAMETER_SECOND_CREATURE].(*Creature)
+		creatures := a.Arguments[PARAMETER_PAIR].([]*Creature)
 		property := a.Arguments[PARAMETER_PROPERTY].(*Property)
 		card := property.ContainingCard
 		card.Owners[0].(*Player).RemoveCard(card)
 		card.Owners = make([]Source, 0, 2)
-		firstCreature.Tail = append(firstCreature.Tail, card)
-		card.Owners = append(card.Owners, firstCreature)
-		secondCreature.Tail = append(secondCreature.Tail, card)
-		card.Owners = append(card.Owners, secondCreature)
+		for _,creature := range creatures {
+			creature.Tail = append(creature.Tail, card)
+			card.Owners = append(card.Owners, creature)
+		}
 	case ACTION_ADD_TRAIT:
 		trait := a.Arguments[PARAMETER_TRAIT].(TraitType)
 		source := a.Arguments[PARAMETER_SOURCE].(WithTraits)
@@ -365,8 +363,8 @@ func NewActionAddFilters(filters ...Filter) *Action {
 	return &Action{ACTION_ADD_FILTERS, map[ArgumentName]Source{PARAMETER_FILTERS : filters}}
 }
 
-func NewActionAddPairProperty(firstCreature Source, secondCreature Source, property Source) *Action {
-	return &Action{ACTION_ADD_PAIR_PROPERTY, map[ArgumentName]Source{PARAMETER_FIRST_CREATURE: firstCreature, PARAMETER_SECOND_CREATURE: secondCreature, PARAMETER_PROPERTY: property}}
+func NewActionAddPairProperty(creatures Source, property Source) *Action {
+	return &Action{ACTION_ADD_PAIR_PROPERTY, map[ArgumentName]Source{PARAMETER_PAIR: creatures, PARAMETER_PROPERTY: property}}
 }
 
 func NewActionPiracy(sourceCreature Source, targetCreature Source, trait Source) *Action {

@@ -2,7 +2,7 @@ var game = new Phaser.Game(1000, 800, Phaser.AUTO, 'game_holder', { preload: pre
 var gameOverlay;
 var cardHeight = 254;
 var cardWidth = 182;
-var cardEdgeWidth = 40;
+var cardEdgeWidth = 38;
 var controlAreaWidth = 170;
 var handArea;
 var mainArea;
@@ -14,21 +14,19 @@ var availableActions = null;
 var currentPlayerId;
 var playerId;
 var selectionRect;
+var socket;
 var voteStart = false;
 var selectionArrow;
 var selectionRect = null;
-var currentGameState = null;
-var messagesQueue = [];
-var messageInProcessing = null;
 
-MESSAGE_EXECUTED_ACTION = 0
-MESSAGE_CHOICES_LIST = 1
-MESSAGE_NAME = 2
-MESSAGE_CHOICE_NUM = 3
-MESSAGE_LOBBIES_LIST = 4
-MESSAGE_NEW_LOBBY = 5
-MESSAGE_JOIN_LOBBY = 6
-MESSAGE_VOTE_START = 7
+var MESSAGE_EXECUTED_ACTION = 0
+var MESSAGE_CHOICES_LIST = 1
+var	MESSAGE_NAME = 2
+var	MESSAGE_CHOICE_NUM = 3
+var MESSAGE_LOBBIES_LIST = 4
+var	MESSAGE_NEW_LOBBY = 5
+var	MESSAGE_JOIN_LOBBY = 6
+var MESSAGE_VOTE_START = 7
 
 function preload() {
 	game.load.spritesheet('cards','assets/spritesheet.png',cardWidth,cardHeight,20);
@@ -58,68 +56,113 @@ function create() {
 	gameOverlay.drawRoundedRect(mainArea.x, mainArea.y, mainArea.width, mainArea.height, 3);
 	gameOverlay.drawRoundedRect(handArea.x, handArea.y, handArea.width, handArea.height, 3);
 	gameOverlay.drawRoundedRect(controlArea.x, controlArea.y, controlArea.width, controlArea.height, 3);
-	foodBank = game.add.group();
+	foodBank = game.add.graphics();
 	foodBank.x = mainArea.halfWidth;
 	foodBank.y = mainArea.halfHeight;
+	foodBank.lineStyle(0);
 	hand = game.add.group();
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
+	//socket = new WebSocket("ws://127.0.0.1:8081/socket");
+	//socket = new WebSocket("ws://93.188.39.118:8081/socket");
+	socket = new WebSocket("ws://82.193.120.243:80/socket");
+	socket.onopen = onSocketOpen;
+	socket.onmessage = onSocketMessage;
 }
 
-function addMessage(message) {
-	messagesQueue.push(message);
+function vote() {
+	voteStart = !voteStart;
+	var message = {
+    		Type: MESSAGE_VOTE_START,
+    		Value: voteStart
+    	};
+    socket.send(JSON.stringify(message));
 }
 
-function processMessage(message) {
-	if (message.Type == MESSAGE_EXECUTED_ACTION) {
-		//showAction(message.Value);
-		updateGameState(message.Value.State)
-		return
-	}
-	if (message.Type == MESSAGE_CHOICES_LIST) {
-		updateGameState(message.Value.State)
-		availableActions = message.Value.Actions;
-		messageInProcessing = null;
-		return
-	}
-	if (message.Type == MESSAGE_LOBBIES_LIST) {
-		initLobbiesList(message.Value);
-		messageInProcessing = null;
-		return
-	}
-	updateGameState(message.Value.State)
+function pass() {
+	if (availableActions == null) {
+		return false;
+	};
+	var action = {
+		Type: "Pass",
+		Arguments: {}
+	};
+	return executeAction(action)
 }
 
-function showAction(msg) {
-	switch(msg.Action.Type) {
-		case "Add creature":
-			var player = findPlayer(msg.Action.Value.Player)
-			break;	
-		default:
-			messageInProcessing = null;
-	}
-}
-
-function updateGameState(state) {
-	//if (currentGameState == null) {
-		currentGameState = state;
-		initGameState(state);
-		return
-	//}
+function endTurn() {
+	if (availableActions == null) {
+		return false;
+	};
+	var action = {
+		Type: "End turn",
+		Arguments: {}
+	};
+	return executeAction(action)
 }
 
 function update() {
-	if (messageInProcessing == null && messagesQueue.length != 0) {
-		messageInProcessing = messagesQueue.shift();
-		processMessage(messageInProcessing);
+	if (hand!= null) {
+		hand.forEach(function(card) {
+			if (card.input.overDuration() > 500 && !card.input.isDragged) {
+				if (!card.flipped) {
+                	card.scale.y = 1;
+                	card.scale.x = 1;
+                } else {
+                	card.scale.x = -1;
+                	card.scale.y = -1;
+                }
+
+			}
+		}, this);
 	}
 }
 
 function render() {
 }
 
-function initLobbiesList(lobbies) {
+function onSocketOpen(event) {
+	var textArea = document.getElementById("log");
+    textArea.value = "";
+};
+
+function onSocketMessage(event) {
+	var textArea = document.getElementById("log");
+	textArea.value = textArea.value + '\n' + event.data;
+	textArea.scrollTop = textArea.scrollHeight;
+	var obj = JSON.parse(event.data);
+	if (obj.Type == MESSAGE_EXECUTED_ACTION) {
+		showAction(obj.Value);
+	}
+	if (obj.Type == MESSAGE_CHOICES_LIST) {
+		updateGameState(obj.Value.State)
+		availableActions = obj.Value.Actions;
+	}
+	if (obj.Type == MESSAGE_LOBBIES_LIST) {
+		updateLobbiesList(obj.Value);
+	}
+};
+
+function connectToLobby(lobbyId) {
+	var playerId = localStorage.getItem("PlayerId")
+	message = {
+		Type: MESSAGE_JOIN_LOBBY,
+		Value: {
+			LobbyId: lobbyId,
+			PlayerId: playerId
+		}}
+	socket.send(JSON.stringify(message))
+};
+
+function createLobby() {
+	message = {
+		Type: MESSAGE_NEW_LOBBY,
+		Value: null}
+	socket.send(JSON.stringify(message))
+};
+
+function updateLobbiesList(lobbies) {
 	var select = document.getElementById("lobbies");
 	while (select.hasChildNodes()) {
 		select.removeChild(select.lastChild);
@@ -138,52 +181,149 @@ function initLobbiesList(lobbies) {
 	}
 };
 
-function initGameState(state) {
+function executeAction(action) {
+	if (availableActions == null) {
+		return false;
+	}
+	for (var i in availableActions) {
+		var tmp1 = JSON.stringify(action);
+		var tmp2 = JSON.stringify(availableActions[i]);
+		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
+			availableActions = null;
+			response = {
+				Type: MESSAGE_CHOICE_NUM,
+				Value:i
+			}
+			socket.send(JSON.stringify(response));
+			return true;
+		}
+	}
+	return false;
+}
+
+function executeAddCreatureAction(cardId) {
+	var action = {
+		Type: "Add creature",
+		Arguments: {
+			Card: cardId,
+			Player: currentPlayerId
+		}
+	};
+	return executeAction(action);
+}
+
+function executeAddPropertyAction(creatureId, propertyId) {
+	var action = {
+		Type: "Add single property",
+		Arguments: {
+			Creature: creatureId,
+			Property: propertyId
+		}
+	};
+	return executeAction(action);
+}
+
+function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propertyId) {
+	var action = {
+		Type: "Add pair property",
+		Arguments: {
+			Pair: [
+				firstCreatureId,
+				secondCreatureId
+			],
+			Property: propertyId
+		}
+	};
+	return executeAction(action);
+}
+
+function executeActionGrazing(propertyId) {
+	var action = {
+		Type: "Destroy bank food",
+		Arguments: {
+			Property: propertyId
+		}
+	};
+	return executeAction(action);
+}
+
+function executeActionHibernation(creatureId) {
+	var action = {
+		Type: "Hibernate",
+		Arguments: {
+			Creature: creatureId
+		}
+	};
+	return executeAction(action);
+}
+
+function executeActionAttack(playerId, sourceCreatureId, targetCreatureId) {
+	var action = {
+		Type: "Attack",
+		Arguments: {
+			Player: playerId,
+			SourceCreature: sourceCreatureId,
+			TargetCreature: targetCreatureId
+		}
+	};
+	return executeAction(action);
+}
+
+function executeActionPiracy(sourceCreatureId, targetCreatureId, trait) {
+	var action = {
+		Type: "Piracy",
+		Arguments: {
+			SourceCreature: sourceCreatureId,
+			TargetCreature: targetCreatureId,
+			Trait: trait
+		}
+	};
+	return executeAction(action);
+}
+
+function executeActionGrabFood(creatureId) {
+	var action = {
+		Type: "Get food from bank",
+		Arguments: {
+			Creature: creatureId
+		}};
+	return executeAction(action);
+}
+
+function showAction(action) {
+	updateGameState(action.State)
+}
+
+function updateGameState(state) {
 	currentPlayerId=state.CurrentPlayerId;
 	playerId = state.PlayerId;
 	localStorage.setItem("PlayerId", playerId);
 	updateFoodBank(state.FoodBank);
-	initPlayers(state.Players);
-	initHand(state.PlayerCards);
+	updatePlayers(state.Players);
+	updateHand(state.PlayerCards);
 }
 
 function updateFoodBank(count) {
-	while (foodBank.children.length > count) {
-		foodBank.removeChildAt(0);
+	foodBank.clear();
+	foodBank.beginFill(0xFF0000, 1);
+	var rectangle = new Phaser.Rectangle(-50, -50, 100, 100);
+	for (var i = 0; i<count; i++) {
+		foodBank.drawCircle(rectangle.randomX, rectangle.randomY, 10);
 	}
-	//foodBank.clear();
-	while (foodBank.children.length < count) {
-		var item = game.add.graphics();
-		item.lineStyle(0);
-		foodBank.add(item)
-		var rectangle = new Phaser.Rectangle(-50, -50, 100, 100);
-		var x = rectangle.randomX;
-		var y = rectangle.randomY;
-		item.beginFill(0xFFFFFF, 1);
-		item.drawCircle(x, y, 21)
-		item.endFill();
-		item.beginFill(0xFF0000, 1);
-		item.drawCircle(x, y, 20);
-		item.endFill();
-	}
+	foodBank.endFill();
 }
 
-function initHand(handDTO) {
+function updateHand(handDTO) {
 	hand.removeAll(true);
 	var y = handArea.halfHeight;
-	var count = 0;
-	for (var i in handDTO) {
-		count ++;
-	}
-	var startX = (handArea.width-(cardWidth*count/2*3/2))/2;
+	var startX = (handArea.width-(cardWidth*handDTO.length/2*3/2))/2;
 	if (startX < 0) {
 		startX = cardWidth/4;
 	}
-	var offset = (handArea.width-startX*2)/(count);
-	var num = 0.0;
+	var offset = (handArea.width-startX*2)/(handDTO.length);
 	
 	for (var i in handDTO) {
-		var card = new Card(handDTO[i], startX + +num + 0.5)*offset, y);
+		var card = new Card(handDTO[i], startX + (+i + +0.5)*offset, y);
 		card.events.onInputOver.add(cardOver, card);
     	card.events.onInputOut.add(cardOut, card);
 	    card.events.onInputUp.add(cardUp, card);
@@ -192,32 +332,34 @@ function initHand(handDTO) {
 	    card.events.onDragUpdate.add(cardDragUpdate, card);
 	    card.input.enableDrag();
 		hand.add(card);
-		num++;
 	}
 }
 
-function initPlayers(playersDTO) {
+function updatePlayers(playersDTO) {
 	if (selectionArrow != null) {
 		selectionArrow.arrow.destroy();
 		selectionArrow = null;
 	}
 	players.removeAll(true);
 	var startAngle = 180;
-	var count = 0;
-	for (var i in playersDTO) {
-		count++;
-	}
-	var deltaAngle = 360/count;
+	var deltaAngle = 360/playersDTO.length;
 	var radiusX = mainArea.halfWidth - cardHeight/4;
 	var radiusY = mainArea.halfHeight - cardHeight/4;
-	var angle = 0;
-	var playersCreatures = new PlayerCreatures(playersDTO[playerId], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radiusX, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radiusY, angle)
-    game.add.existing(playersCreatures);
-   	players.add(playersCreatures);
-    angle += deltaAngle;
+	var playerIndex = 0;
 	for (var i in playersDTO) {
-		if (i == playerId)
-			continue;
+		if (playersDTO[i].Id == playerId) {
+			playerIndex = i;
+			break;
+		}
+	}
+	var angle = 0;
+	for (var i = playerIndex; i<playersDTO.length; i++) {
+		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radiusX, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radiusY, angle)
+        game.add.existing(playersCreatures);
+        players.add(playersCreatures);
+        angle += deltaAngle;
+	}
+	for (var i = 0; i<playerIndex; i++) {
 		var playersCreatures = new PlayerCreatures(playersDTO[i], mainArea.halfWidth-Math.sin(angle*Math.PI/180)*radiusX, mainArea.halfHeight+Math.cos(angle*Math.PI/180)*radiusY, angle)
         game.add.existing(playersCreatures);
         players.add(playersCreatures);
@@ -225,37 +367,26 @@ function initPlayers(playersDTO) {
 	}
 }
 
-function findPlayer(id) {
-	for (var i in players.children) {
-		if (players.getChildAt(i).Id == id) {
-			return players.getChildAt(i);
-		}
-	}
-	return null;
-}
-
 PlayerCreatures = function(playerDTO, x, y, angle) {
 	Phaser.Group.call(this, game);
-	this.Id = playerDTO.Id;
 	this.x = x;
 	this.y = y;
 	this.angle = angle;
-	var num = 0;
+	var totalCreatureWidthHalf = cardWidth/2 * playerDTO.Creatures.length/2;
 	for (var i in playerDTO.Creatures) {
-		var creature = new Creature(playerDTO.Creatures[i]);
-		creature.x = (num + +1 - playerDTO.Creatures.length)*(cardWidth/2 + cardEdgeWidth/2)
-		creature.y = 0
+		var creature = new Creature(playerDTO.Creatures[i], (+i + +1)*cardWidth/2-totalCreatureWidthHalf, 0);
 		game.add.existing(creature);
 		this.add(creature);
-		num++;
 	}
 };
 
 PlayerCreatures.prototype = Object.create(Phaser.Group.prototype);
 PlayerCreatures.prototype.constructor = PlayerCreatures;
 
-Creature = function(creatureDTO) {
+Creature = function(creatureDTO, x, y) {
 	Phaser.Group.call(this, game);
+	this.x = x-cardWidth/4;
+	this.y = y-cardHeight/4;
 	this.Id = creatureDTO.Id;
 	this.Traits = creatureDTO.Traits;
 	for (var i in creatureDTO.Cards) {
@@ -291,79 +422,24 @@ Creature = function(creatureDTO) {
     this.Food.beginFill(0xFF0000, 1);
     for (var i in creatureDTO.Traits) {
         if (creatureDTO.Traits[i] == "Food") {
-        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 20);
+        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
        	}
     }
-    this.Food.endFill();
+    foodBank.endFill();
     this.Food.beginFill(0x0000FF, 1);
     for (var i in creatureDTO.Traits) {
     	if (creatureDTO.Traits[i] == "Additional food") {
-        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 20);
+        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
         }
     }
-    this.Food.endFill();
+    foodBank.endFill();
     this.Food.beginFill(0xFFFF00, 1);
     for (var i in creatureDTO.Traits) {
     	if (creatureDTO.Traits[i] == "Fat") {
-            this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 20);
+            this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
         }
     }
-    this.Food.endFill();
-		/*this.Food = game.add.group();
-	this.AdditionalFood = game.add.group();
-	this.Fat = game.add.group();
-	this.Food.x = back.x;
-	this.Food.y = back.y;
-	this.AdditionalFood.x = back.x;
-	this.AdditionalFood.y = back.y;
-	this.Fat.x = back.x;
-	this.Fat.y = back.y;
-	//this.add(this.Food);
-	//this.add(this.AdditionalFood);
-	//this.add(this.Fat);
-	
-    for (var i in creatureDTO.Traits) {
-        if (creatureDTO.Traits[i] == "Food") {
-			var item = game.add.graphics();
-			this.Food.add(item);
-			var x = backBounds.randomX;
-			var y = backBounds.randomY;
-			item.beginFill(0xFFFFFF, 1);
-        	item.drawCircle(x, y, 20);
-			item.endFill();
-			item.beginFill(0xFF0000, 1);
-        	item.drawCircle(x, y, 20);
-			item.endFill();
-       	}
-    }
-    for (var i in creatureDTO.Traits) {
-    	if (creatureDTO.Traits[i] == "Additional food") {
-			var item = game.add.graphics();
-			this.AdditionalFood.add(item);
-        	var x = backBounds.randomX;
-			var y = backBounds.randomY;
-			item.beginFill(0xFFFFFF, 1);
-        	item.drawCircle(x, y, 21);
-			item.endFill();
-			item.beginFill(0x0000FF, 1);
-        	item.drawCircle(x, y, 20);
-			item.endFill();
-       	}
-    }
-    for (var i in creatureDTO.Traits) {
-    	if (creatureDTO.Traits[i] == "Fat") {
-			var item = game.add.graphics();
-			this.Fat.add(item);
-            var x = backBounds.randomX;
-			var y = backBounds.randomY;
-			item.beginFill(0xFFFFFF, 1);
-        	item.drawCircle(x, y, 21);
-			item.endFill();
-			item.beginFill(0xFFFF00, 1);
-        	item.drawCircle(x, y, 20);
-			item.endFill();
-        }
-    }*/
+    foodBank.endFill();
 };
 
 Creature.prototype = Object.create(Phaser.Group.prototype);
@@ -397,13 +473,13 @@ function propertyOver(card, pointer) {
 		card.parent.parent.add(card.selection);
 		var creature = card.parent;
 		card.selection.lineStyle(1, 0x000000, 1);
-		card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + card.position.y - cardHeight/4  + 4 , cardWidth/2-8, cardEdgeWidth/2-5, 3);
+		card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + card.position.y - cardHeight/4  + 4 , cardWidth/2-8, cardEdgeWidth/2-8, 3);
 		var property = card.getActiveProperty();
 		if (property.pair) {
 			var pairCard = getPairProperty(card);
 			if (pairCard != null) {
 				var creature = pairCard.parent;
-				card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + pairCard.position.y - cardHeight/4 + 4, cardWidth/2-8, cardEdgeWidth/2-5, 3);
+				card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + pairCard.position.y - cardHeight/4 + 4, cardWidth/2-8, cardEdgeWidth/2-8, 3);
 			}
 		}
 	}
@@ -426,23 +502,32 @@ function propertyOut(card, pointer) {
 
 function cardOver(card, pointer) {
 	card.bringToTop();
-    card.scale.y = 1;
-    card.scale.x = 1;
 }
 
 function cardUp(card, pointer) {
 	if (card.input.pointerTimeUp()-card.input.pointerTimeDown() < 70) {
 		card.flipped = !card.flipped;
-		card.rotation = Math.PI - card.rotation;
+		card.scale.y *= -1;
+		card.scale.x *= -1;
 	}
 }
 
 function cardOut(card, pointer) {
-    card.scale.setTo(0.5, 0.5);
+	card.anchor.y = 0.5;
+	if (!card.flipped) {
+    	card.scale.setTo(0.5, 0.5);
+    } else {
+    	card.scale.setTo(-0.5, -0.5);
+    }
 }
 
 function cardDragStart(card) {
-	card.scale.setTo(0.5, 0.5);
+	card.anchor.y = 0.5;
+	if (!card.flipped) {
+    	card.scale.setTo(0.5, 0.5);
+    } else {
+    	card.scale.setTo(-0.5, -0.5);
+    }
 }
 
 function cardDragStop(card) {
@@ -577,7 +662,8 @@ Card = function(cardDTO, x, y) {
     this.flipped = false;
 	if (cardDTO.ActiveProperty.Id != cardDTO.Properties[0].Id) {
 		this.flipped = true;
-		this.rotation = Math.PI - this.rotation;
+		this.scale.y *= -1;
+		this.scale.x *= -1;
 	}
 	this.getActiveProperty = function() {
 		if (this.properties.length == 1 || !this.flipped) {
