@@ -60,10 +60,9 @@ function create() {
 	gameOverlay.drawRoundedRect(mainArea.x, mainArea.y, mainArea.width, mainArea.height, 3);
 	gameOverlay.drawRoundedRect(handArea.x, handArea.y, handArea.width, handArea.height, 3);
 	gameOverlay.drawRoundedRect(controlArea.x, controlArea.y, controlArea.width, controlArea.height, 3);
-	foodBank = game.add.graphics();
+	foodBank = game.add.group();
 	foodBank.x = mainArea.halfWidth;
 	foodBank.y = mainArea.halfHeight;
-	foodBank.lineStyle(0);
 	hand = game.add.group();
 	hand.x = handArea.x;
 	hand.y = handArea.y;
@@ -83,6 +82,7 @@ function processMessage(message) {
 	if (message.Type == MESSAGE_CHOICES_LIST) {
 		updateGameState(message.Value.State)
 		availableActions = message.Value.Actions;
+		alert("Now you must choose");
 		messageInProcessing = null;
 		return
 	}
@@ -118,6 +118,162 @@ function showAction(msg, state) {
 			break;
 		case "Add pair property":
 			showActionAddPairProperty(msg, state);
+			break;
+		case "Remove creature":
+			var creature = findCreature(msg.Action.Arguments.Creature);
+			var player = creature.parent.parent;
+			for (var i in creature.Properties.children) {
+				if (creature.Properties.getChildAt(i).selection != null) {
+					creature.Properties.getChildAt(i).selection.destroy();
+				}
+			}
+			if (creature.back.selection != null) {
+					creature.back.selection.destroy();
+			}
+			creature.destroy();
+			arrangePlayerCreatures(player);
+			messageInProcessing = null;
+			break;
+		case "New phase":
+			alert(msg.Action.Arguments.Phase);
+			if (msg.Action.Arguments.Phase = "Development") {
+				for (var i in players.children) {
+					for (var j in players.getChildAt(i).Creatures.children) {
+						var creature = players.getChildAt(i).Creatures.getChildAt(j);
+						while (creature.Food.children.length > 0)
+							creature.Food.getChildAt(0).destroy();
+						while (creature.AdditionalFood.children.length > 0)
+							creature.AdditionalFood.getChildAt(0).destroy();
+					}
+				}
+			}
+			messageInProcessing = null;
+			break;
+		case "Determine food bank":
+			updateFoodBank(state.FoodBank)
+			messageInProcessing = null;
+			break;
+		case "Remove card":
+			var card = null;
+			for (var i in players.children) {
+				for (var j in players.getChildAt(i).Creatures.children) {
+					for (var k in players.getChildAt(i).Creatures.getChildAt(j).Properties.children) {
+						if (players.getChildAt(i).Creatures.getChildAt(j).Properties.getChildAt(k).Id == msg.Action.Arguments.Card) {
+							card = players.getChildAt(i).Creatures.getChildAt(j).Properties.getChildAt(k);
+							break;
+						}
+					}
+					if (card != null) break;
+				}
+				if (card != null) break;
+			}
+			if (card != null) {
+				card.destoy();
+			}
+			messageInProcessing = null;
+			break;
+		case "Destroy bank food":
+			if (foodBank.children.length > 0)
+				foodBank.getChildAt(0).destroy();
+			messageInProcessing = null;
+			break;
+		case "Take cards":
+			updateHand(state.PlayerCards)
+		case "Get food from bank":
+			if (foodBank.children.length > 0)
+				foodBank.getChildAt(0).destroy();
+			messageInProcessing = null;
+			break;
+		case "Add trait":
+			var creature = findCreature(msg.Action.Arguments.Source);
+			if (creature != null) {
+				switch (msg.Action.Arguments.Trait) {
+					case "Additional food":
+						var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
+						var circle = game.add.graphics();
+						creature.Food.add(circle);
+						circle.x = backBounds.randomX;
+						circle.y = backBounds.randomY;
+						circle.beginFill(0x0000FF, 1);
+						circle.drawCircle(0, 0, 10);
+						circle.endFill();
+						break;
+					case "Food":
+						var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
+						var circle = game.add.graphics();
+						creature.Food.add(circle);
+						circle.x = backBounds.randomX;
+						circle.y = backBounds.randomY;
+						circle.beginFill(0xFF0000, 1);
+						circle.drawCircle(0, 0, 10);
+						circle.endFill();
+						break;
+					case "Fat":
+						var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
+						var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
+						var circle = game.add.graphics();
+						creature.Food.add(circle);
+						circle.x = backBounds.randomX;
+						circle.y = backBounds.randomY;
+						circle.beginFill(0xFFFF00, 1);
+						circle.drawCircle(0, 0, 10);
+						circle.endFill();
+						break;
+				}
+			}
+			var card = null;
+			for (var i in players.children) {
+				for (var j in players.getChildAt(i).Creatures.children) {
+					for (var k in players.getChildAt(i).Creatures.getChildAt(j).Properties.children) {
+						if (players.getChildAt(i).Creatures.getChildAt(j).Properties.getChildAt(k).getActiveProperty().Id == msg.Action.Arguments.Source) {
+							card = players.getChildAt(i).Creatures.getChildAt(j).Properties.getChildAt(k);
+							break;
+						}
+					}
+					if (card != null) break;
+				}
+				if (card != null) break;
+			}
+			if (card != null && msg.Action.Arguments.Trait == "Used") {
+				card.rotation = Math.PI/2;
+			}
+			messageInProcessing = null;
+			break;
+		case "Remove trait":
+			var creature = findCreature(msg.Action.Arguments.Source);
+			if (creature != null) {
+				switch (msg.Action.Arguments.Trait) {
+					case "Additional food":
+						if (creature.AdditionFood.children.length != 0)
+							creature.AdditionFood.getChildAt(0).destroy();
+						break;
+					case "Food":
+						if (creature.Food.children.length != 0)
+							creature.Food.getChildAt(0).destroy();
+						break;
+					case "Fat":
+						if (creature.Fat.children.length != 0)
+							creature.Fat.getChildAt(0).destroy();
+						break;
+				}
+			}
+			var card = null;
+			for (var i in players.children) {
+				for (var j in players.getChildAt(i).Creatures.children) {
+					for (var k in players.getChildAt(i).Creatures.getChildAt(j).Properties.children) {
+						if (players.getChildAt(i).Creatures.getChildAt(j).Properties.getChildAt(k).getActiveProperty().Id == msg.Action.Arguments.Source) {
+							card = players.getChildAt(i).Creatures.getChildAt(j).Properties.getChildAt(k);
+							break;
+						}
+					}
+					if (card != null) break;
+				}
+				if (card != null) break;
+			}
+			if (card != null && msg.Action.Arguments.Trait == "Used") {
+				card.rotation = 0;
+			}
+			messageInProcessing = null;
 			break;
 		default:
 			messageInProcessing = null;
@@ -306,13 +462,17 @@ function updateLobbiesList(lobbies) {
 };
 
 function updateFoodBank(count) {
-	foodBank.clear();
-	foodBank.beginFill(0xFF0000, 1);
+	while (foodBank.children.length > 0)
+		foodBank.getChildAt(0).destroy();
 	var rectangle = new Phaser.Rectangle(-50, -50, 100, 100);
 	for (var i = 0; i<count; i++) {
-		foodBank.drawCircle(rectangle.randomX, rectangle.randomY, 10);
+		var circle = game.add.graphics();
+		foodBank.add(circle);
+		circle.lineStyle(0);
+		circle.beginFill(0xFF0000, 1);
+		circle.drawCircle(rectangle.randomX, rectangle.randomY, 10);
+		circle.endFill();
 	}
-	foodBank.endFill();
 }
 
 function updateHand(handDTO) {
@@ -384,6 +544,16 @@ function findPlayer(id) {
 	}
 }
 
+function findCreature(id) {
+	for (var i in players.children) {
+		for (var j in players.getChildAt(i).Creatures.children) {
+			if (players.getChildAt(i).Creatures.getChildAt(j).Id == id) {
+				return players.getChildAt(i).Creatures.getChildAt(j);
+			}
+		}
+	}
+}
+
 function findCardInHand(id) {
 	for (var i in hand.children) {
 		if (hand.getChildAt(i).Id == id) {
@@ -443,31 +613,51 @@ Creature = function(creatureDTO, x, y) {
 		addCard(this, card);
 	}
 	var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
-	this.Food = game.add.graphics();
+	this.Food = game.add.group();
 	this.Food.x = this.back.x;
 	this.Food.y = this.back.y;
+	this.AdditionalFood = game.add.group();
+	this.AdditionalFood.x = this.back.x;
+	this.AdditionalFood.y = this.back.y;
+	this.Fat = game.add.group();
+	this.Fat.x = this.back.x;
+	this.Fat.y = this.back.y;
 	this.add(this.Food);
-    this.Food.beginFill(0xFF0000, 1);
+	this.add(this.AdditionalFood);
+	this.add(this.Fat);
     for (var i in creatureDTO.Traits) {
         if (creatureDTO.Traits[i] == "Food") {
-        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
+			var circle = game.add.graphics();
+			this.Food.add(circle);
+			circle.x = backBounds.randomX;
+			circle.y = backBounds.randomY;
+			circle.beginFill(0xFF0000, 1);
+			circle.drawCircle(0, 0, 10);
+			circle.endFill();
        	}
     }
-    foodBank.endFill();
-    this.Food.beginFill(0x0000FF, 1);
     for (var i in creatureDTO.Traits) {
     	if (creatureDTO.Traits[i] == "Additional food") {
-        	this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
+        	var circle = game.add.graphics();
+			this.Food.add(circle);
+			circle.x = backBounds.randomX;
+			circle.y = backBounds.randomY;
+			circle.beginFill(0x0000FF, 1);
+			circle.drawCircle(0, 0, 10);
+			circle.endFill();;
         }
     }
-    foodBank.endFill();
-    this.Food.beginFill(0xFFFF00, 1);
     for (var i in creatureDTO.Traits) {
     	if (creatureDTO.Traits[i] == "Fat") {
-            this.Food.drawCircle(backBounds.randomX, backBounds.randomY, 10);
+            var circle = game.add.graphics();
+			this.Food.add(circle);
+			circle.x = backBounds.randomX;
+			circle.y = backBounds.randomY;
+			circle.beginFill(0xFFFF00, 1);
+			circle.drawCircle(0, 0, 10);
+			circle.endFill();
         }
     }
-    foodBank.endFill();
 };
 
 function addCard(creature, card) {
@@ -499,15 +689,15 @@ function addPropertyEvents(card) {
     } 
 	if ($.inArray("Hibernation", traits) != -1) {
         card.events.onInputUp.add(function (card) {
-			executeActionHibernation(card.parent.Id);
+			executeActionHibernation(card.parent.parent.Id);
 		}, card);
     } else if ($.inArray("Piracy", traits) != -1) {
         card.events.onInputDown.add(function (card) {
-			startSelection(card.parent, card.parent, onSelectPiracyTarget);
+			startSelection(card.parent.parent, card.parent.parent, onSelectPiracyTarget);
 		}, card);
     } else if ($.inArray("Carnivorous", traits) != -1) {
 		card.events.onInputDown.add(function (card) {
-			startSelection(card.parent, card.parent, onSelectAttackTarget);
+			startSelection(card.parent.parent, card.parent.parent, onSelectAttackTarget);
 		}, card);
     }
 }
@@ -596,7 +786,7 @@ function cardDragStop(card) {
 					firstCreature: creature,
 					property: property
 				};
-				startSelection(creature, arguments, onSelectSecondPairCreature);
+				startSelection(creature.Properties, arguments, onSelectSecondPairCreature);
 				return;
 			}
 		}
@@ -793,8 +983,10 @@ function mouseMoveCallback(pointer, x, y) {
 
 function startSelection(startObject, arguments, onSelect) {
 	var arrow = game.add.group();
-	arrow.x = startObject.getBounds().x + startObject.getBounds().width/2;
-	arrow.y = startObject.getBounds().y + startObject.getBounds().height/2;
+	//arrow.x = startObject.worldPosition.x + startObject.getBounds().width/2;
+	//arrow.y = startObject.worldPosition.y + startObject.getBounds().height/2;
+	arrow.x = startObject.worldPosition.x;
+	arrow.y = startObject.worldPosition.y;
 	var line = game.add.tileSprite(-6, 0, 12, 1, 'chain');
 	arrow.add(line);
 	selectionArrow = {
