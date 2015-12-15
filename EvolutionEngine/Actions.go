@@ -42,23 +42,23 @@ func (a Action) GoString() string {
 		result += fmt.Sprintf("Added trait %#v to %#v", trait, source)
 	case ACTION_NEW_PHASE:
 		switch a.Arguments[PARAMETER_PHASE] {
-			case PHASE_DEVELOPMENT:
-				result += "Starting phase development"
-			case PHASE_FOOD_BANK_DETERMINATION:
-				result += "Starting phase food bank determination"
-			case PHASE_FEEDING:
-				result += "Starting phase feeding"
-			case PHASE_EXTINCTION:
-				result += "It's extinction time!"
-			case PHASE_FINAL:
-				result += "It's finale!"
+		case PHASE_DEVELOPMENT:
+			result += "Starting phase development"
+		case PHASE_FOOD_BANK_DETERMINATION:
+			result += "Starting phase food bank determination"
+		case PHASE_FEEDING:
+			result += "Starting phase feeding"
+		case PHASE_EXTINCTION:
+			result += "It's extinction time!"
+		case PHASE_FINAL:
+			result += "It's finale!"
 		}
 	case ACTION_SEQUENCE:
 		result += "Unpacking action sequence"
 	case ACTION_ADD_FILTERS:
-		result += fmt.Sprintf("Add filter %#v",a.Arguments[PARAMETER_FILTERS])
+		result += fmt.Sprintf("Add filter %#v", a.Arguments[PARAMETER_FILTERS])
 	case ACTION_GET_FOOD_FROM_BANK:
-		result += fmt.Sprintf("Give food from bank to creature %#v",a.Arguments[PARAMETER_CREATURE])
+		result += fmt.Sprintf("Give food from bank to creature %#v", a.Arguments[PARAMETER_CREATURE])
 	case ACTION_PIRACY:
 		result += fmt.Sprintf("Steal %#v for %#v from %#v", a.Arguments[PARAMETER_TRAIT], a.Arguments[PARAMETER_SOURCE_CREATURE], a.Arguments[PARAMETER_TARGET_CREATURE])
 	case ACTION_DESTROY_BANK_FOOD:
@@ -148,7 +148,7 @@ func (a *Action) Execute(game *Game) {
 		card := property.ContainingCard
 		card.Owners[0].(*Player).RemoveCard(card)
 		card.Owners = make([]Source, 0, 2)
-		for _,creature := range creatures {
+		for _, creature := range creatures {
 			creature.Tail = append(creature.Tail, card)
 			card.Owners = append(card.Owners, creature)
 		}
@@ -169,10 +169,14 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_DETERMINE_FOOD_BANK:
 		foodCount := 0
 		switch game.PlayersCount {
-			case 1: foodCount = rand.Intn(6)+1
-			case 2: foodCount = rand.Intn(6)+1+2
-			case 3: foodCount = rand.Intn(6)+rand.Intn(6)+2	
-			case 4: foodCount = rand.Intn(6)+rand.Intn(6)+2+1	
+		case 1:
+			foodCount = rand.Intn(6) + 1
+		case 2:
+			foodCount = rand.Intn(6) + 1 + 2
+		case 3:
+			foodCount = rand.Intn(6) + rand.Intn(6) + 2
+		case 4:
+			foodCount = rand.Intn(6) + rand.Intn(6) + 2 + 1
 		}
 		game.Food = foodCount
 	case ACTION_GET_FOOD_FROM_BANK:
@@ -200,7 +204,7 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_REMOVE_CREATURE:
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
 		player := creature.Owner
-		for _,card := range creature.Tail {
+		for _, card := range creature.Tail {
 			game.ExecuteAction(NewActionRemoveCard(card))
 		}
 		player.RemoveCreature(creature)
@@ -213,18 +217,18 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_ATTACK:
 		sourceCreature := a.Arguments[PARAMETER_SOURCE_CREATURE].(*Creature)
 		switch target := a.Arguments[PARAMETER_TARGET_CREATURE].(type) {
-			case *Creature:
-				game.ExecuteAction(NewActionEat(sourceCreature, target))
-				game.ExecuteAction(NewActionGainAdditionalFood(sourceCreature, 2))
-			case *Property:
-				game.ExecuteAction(NewActionRemoveCard(target.ContainingCard))
-				game.ExecuteAction(NewActionGainAdditionalFood(sourceCreature, 1))
+		case *Creature:
+			game.ExecuteAction(NewActionEat(sourceCreature, target))
+			game.ExecuteAction(NewActionGainAdditionalFood(sourceCreature, 2))
+		case *Property:
+			game.ExecuteAction(NewActionRemoveCard(target.ContainingCard))
+			game.ExecuteAction(NewActionGainAdditionalFood(sourceCreature, 1))
 		}
 	case ACTION_RANDOM_ATTACK:
 		source := a.Arguments[PARAMETER_SOURCE_CREATURE]
 		target := a.Arguments[PARAMETER_TARGET_CREATURE]
 		chooser := a.Arguments[PARAMETER_PLAYER]
-		roll := rand.Intn(6)+1
+		roll := rand.Intn(6) + 1
 		if roll > 3 {
 			game.ExecuteAction(NewActionAttack(chooser, source, target))
 		} else {
@@ -237,14 +241,15 @@ func (a *Action) Execute(game *Game) {
 						&ConditionActionType{ACTION_NEW_PHASE}},
 					&FilterDeny{
 						&ConditionActionType{ACTION_ATTACK},
-						&ConditionActionType{ACTION_START_TURN}}))}
+						&ConditionActionType{ACTION_START_TURN}}))
+		}
 	case ACTION_EXTINCT:
-		game.Players.Do(func (val interface{}) {
+		game.Players.Do(func(val interface{}) {
 			player := val.(*Player)
 			removed := true
 			for removed {
 				removed = false
-				for _,creature := range player.Creatures {
+				for _, creature := range player.Creatures {
 					if !creature.ContainsTrait(TRAIT_FED) {
 						removed = true
 						game.ExecuteAction(NewActionRemoveCreature(creature))
@@ -252,7 +257,7 @@ func (a *Action) Execute(game *Game) {
 					}
 				}
 			}
-			for _,creature := range player.Creatures {
+			for _, creature := range player.Creatures {
 				creature.RemoveTrait(TRAIT_FED)
 				for creature.ContainsTrait(TRAIT_FOOD) {
 					creature.RemoveTrait(TRAIT_FOOD)
@@ -264,16 +269,16 @@ func (a *Action) Execute(game *Game) {
 		})
 	case ACTION_TAKE_CARDS:
 		cardsCounts := make(map[*Player]int)
-		game.Players.Do(func (val interface{}) {
+		game.Players.Do(func(val interface{}) {
 			player := val.(*Player)
-			if (len(player.Creatures) == 0 && len(player.Cards) == 0) {
-				cardsCounts[player] = 6;
+			if len(player.Creatures) == 0 && len(player.Cards) == 0 {
+				cardsCounts[player] = 6
 			} else {
 				cardsCounts[player] = len(player.Creatures) + 1
 			}
 		})
 		for len(cardsCounts) != 0 {
-			for player,cardsCount := range cardsCounts {
+			for player, cardsCount := range cardsCounts {
 				if cardsCount == 0 {
 					delete(cardsCounts, player)
 				} else {
@@ -288,15 +293,15 @@ func (a *Action) Execute(game *Game) {
 	case ACTION_GAIN_ADDITIONAL_FOOD:
 		creature := a.Arguments[PARAMETER_CREATURE].(*Creature)
 		count := a.Arguments[PARAMETER_COUNT].(int)
-		for i:=0; i<count;i++ {
+		for i := 0; i < count; i++ {
 			game.ExecuteAction(NewActionAddTrait(creature, TRAIT_ADDITIONAL_FOOD))
 		}
 	case ACTION_EAT:
 		target := a.Arguments[PARAMETER_TARGET_CREATURE]
 		game.ExecuteAction(NewActionRemoveCreature(target))
 	case ACTION_SCAVENGE:
-		game.Players.Do(func (val interface {}) {
-			for _,creature := range val.(*Player).Creatures {
+		game.Players.Do(func(val interface{}) {
+			for _, creature := range val.(*Player).Creatures {
 				if creature.ContainsTrait(TRAIT_SCAVENGER) {
 					condition := &ConditionActionDenied{NewActionGainAdditionalFood(creature, 1)}
 					if !condition.CheckCondition(game, nil) {
@@ -337,7 +342,7 @@ func NewActionSelect(actions ...*Action) *Action {
 		return &Action{actions[0].Type, actions[0].Arguments}
 	}
 	return &Action{ACTION_SELECT, map[ArgumentName]Source{PARAMETER_ACTIONS: actions}}
-} 
+}
 
 func NewActionNewPhase(phaseType PhaseType) *Action {
 	return &Action{ACTION_NEW_PHASE, map[ArgumentName]Source{PARAMETER_PHASE: phaseType}}
@@ -360,7 +365,7 @@ func NewActionRemoveTrait(source Source, trait Source) *Action {
 }
 
 func NewActionAddFilters(filters ...Filter) *Action {
-	return &Action{ACTION_ADD_FILTERS, map[ArgumentName]Source{PARAMETER_FILTERS : filters}}
+	return &Action{ACTION_ADD_FILTERS, map[ArgumentName]Source{PARAMETER_FILTERS: filters}}
 }
 
 func NewActionAddPairProperty(creatures Source, property Source) *Action {
@@ -391,7 +396,7 @@ func NewActionRemoveCard(card Source) *Action {
 	return &Action{ACTION_REMOVE_CARD, map[ArgumentName]Source{PARAMETER_CARD: card}}
 }
 
-func NewActionRemoveProperty(property Source) * Action {
+func NewActionRemoveProperty(property Source) *Action {
 	return &Action{ACTION_REMOVE_PROPERTY, map[ArgumentName]Source{PARAMETER_PROPERTY: property}}
 }
 
@@ -400,15 +405,15 @@ func NewActionEndTurn() *Action {
 }
 
 func NewActionGainFood(creature Source) *Action {
-	return &Action{ACTION_GAIN_FOOD, map[ArgumentName]Source{PARAMETER_CREATURE : creature}}
+	return &Action{ACTION_GAIN_FOOD, map[ArgumentName]Source{PARAMETER_CREATURE: creature}}
 }
 
 func NewActionGainAdditionalFood(creature Source, count int) *Action {
-	return &Action{ACTION_GAIN_ADDITIONAL_FOOD, map[ArgumentName]Source{PARAMETER_CREATURE : creature, PARAMETER_COUNT: count}}
+	return &Action{ACTION_GAIN_ADDITIONAL_FOOD, map[ArgumentName]Source{PARAMETER_CREATURE: creature, PARAMETER_COUNT: count}}
 }
 
 func NewActionEat(source Source, target Source) *Action {
-	return &Action{ACTION_EAT, map[ArgumentName]Source{PARAMETER_SOURCE_CREATURE : source, PARAMETER_TARGET_CREATURE: target}}
+	return &Action{ACTION_EAT, map[ArgumentName]Source{PARAMETER_SOURCE_CREATURE: source, PARAMETER_TARGET_CREATURE: target}}
 }
 
 func NewActionTakeCards() *Action {
@@ -429,51 +434,50 @@ func NewActionScavenge() *Action {
 
 func (a *Action) InstantiateFilterPrototypeAction(game *Game, reason *Action, instantiate bool) *Action {
 	instantiatedSources := make(map[ArgumentName]Source)
-	for key,argument := range a.Arguments {
+	for key, argument := range a.Arguments {
 		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, argument, instantiate)
 		instantiatedSources[key] = instantiatedSource
 		if !instantiate {
 			continue
 		}
 		switch instantiatedSource.(type) {
-			case OneOf:
-				oneOf := instantiatedSource.(OneOf)
-				actions := make([]*Action, 0, len(oneOf.Sources))
-				for _, o := range oneOf.Sources {
-					action := &Action{a.Type, make(map[ArgumentName]Source)}
-					for k := range a.Arguments {
-						action.Arguments[k] = a.Arguments[k]
-					}
-					action.Arguments[key] = o
-					instantiatedAction := action.InstantiateFilterPrototypeAction(game, reason, instantiate)
-					if instantiatedAction == nil {
-						continue
-					}
-					if instantiatedAction.Type == ACTION_SELECT {
-						actions = append(actions, instantiatedAction.Arguments[PARAMETER_ACTIONS].([]*Action)...)
-					} else {
-						actions = append(actions, instantiatedAction)
-					}
+		case OneOf:
+			oneOf := instantiatedSource.(OneOf)
+			actions := make([]*Action, 0, len(oneOf.Sources))
+			for _, o := range oneOf.Sources {
+				action := &Action{a.Type, make(map[ArgumentName]Source)}
+				for k := range a.Arguments {
+					action.Arguments[k] = a.Arguments[k]
 				}
-				if len(actions) == 0 {
-					return nil
+				action.Arguments[key] = o
+				instantiatedAction := action.InstantiateFilterPrototypeAction(game, reason, instantiate)
+				if instantiatedAction == nil {
+					continue
+				}
+				if instantiatedAction.Type == ACTION_SELECT {
+					actions = append(actions, instantiatedAction.Arguments[PARAMETER_ACTIONS].([]*Action)...)
 				} else {
-					return NewActionSelect(actions...)
+					actions = append(actions, instantiatedAction)
 				}
-			case AllOf:
-				all := instantiatedSource.(AllOf)
-				actions := make([]*Action, 0, len(all.Sources))
-				for _, o := range all.Sources {
-					action := &Action{a.Type, make(map[ArgumentName]Source)}
-					for k := range a.Arguments {
-						action.Arguments[k] = a.Arguments[k]
-					}
-					action.Arguments[key] = o
-					actions = append(actions, action.InstantiateFilterPrototypeAction(game, reason, instantiate))
+			}
+			if len(actions) == 0 {
+				return nil
+			} else {
+				return NewActionSelect(actions...)
+			}
+		case AllOf:
+			all := instantiatedSource.(AllOf)
+			actions := make([]*Action, 0, len(all.Sources))
+			for _, o := range all.Sources {
+				action := &Action{a.Type, make(map[ArgumentName]Source)}
+				for k := range a.Arguments {
+					action.Arguments[k] = a.Arguments[k]
 				}
-				return NewActionSequence(actions...)
-		}		
+				action.Arguments[key] = o
+				actions = append(actions, action.InstantiateFilterPrototypeAction(game, reason, instantiate))
+			}
+			return NewActionSequence(actions...)
+		}
 	}
 	return &Action{a.Type, instantiatedSources}
 }
-

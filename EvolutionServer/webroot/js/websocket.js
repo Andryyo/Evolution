@@ -1,6 +1,6 @@
 var socket;
 
-socket = new WebSocket("ws://127.0.0.1/socket");
+socket = new WebSocket("ws://127.0.0.1:8081/socket");
 //socket = new WebSocket("ws://93.188.39.118:8081/socket");
 //socket = new WebSocket("ws://82.193.120.243:80/socket");
 socket.onopen = onSocketOpen;

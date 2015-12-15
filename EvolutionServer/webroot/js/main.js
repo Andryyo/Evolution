@@ -1,5 +1,6 @@
 var game = new Phaser.Game(1000, 800, Phaser.AUTO, 'game_holder', { preload: preload, create: create, update: update, render: render});
 var gameOverlay;
+var debug;
 var cardHeight = 254;
 var cardWidth = 182;
 var cardEdgeWidth = 38;
@@ -13,7 +14,6 @@ var players = null;
 var availableActions = null;
 var currentPlayerId;
 var playerId;
-var selectionRect;
 var voteStart = false;
 var selectionArrow;
 var selectionRect = null;
@@ -53,6 +53,8 @@ function create() {
 	game.add.button(controlArea.x + 10, controlArea.y + 110, 'end turn', endTurn, this);
 	game.add.button(controlArea.x + 10, controlArea.y + 170, 'vote', vote, this);
 	game.physics.startSystem(Phaser.Physics.ARCADE);
+	debug = game.add.graphics(0, 0);
+	debug.lineStyle(2, 0xFFFFFF, 1);
 	gameOverlay = game.add.graphics(0, 0);
 	gameOverlay.lineStyle(2, 0xFFFFFF, 1);
 	gameOverlay.drawRoundedRect(mainArea.x, mainArea.y, mainArea.width, mainArea.height, 3);
@@ -74,7 +76,7 @@ function addMessage(message) {
 
 function processMessage(message) {
 	if (message.Type == MESSAGE_EXECUTED_ACTION) {
-		showAction(message.Value);
+		showAction(message.Value, message.Value.State);
 		updateGameState(message.Value.State)
 		return
 	}
@@ -94,28 +96,170 @@ function processMessage(message) {
 
 
 function updateGameState(state) {
-	/*if (currentGameState == null) {
+	if (currentGameState == null) {
+		currentPlayerId=state.CurrentPlayerId;
+		playerId = state.PlayerId;
+		localStorage.setItem("PlayerId", playerId);
+		updateFoodBank(state.FoodBank);
+		updatePlayers(state.Players);
+		updateHand(state.PlayerCards);
 		currentGameState = state;
-		//initGameState(state);
-		return
-	}*/
-	currentPlayerId=state.CurrentPlayerId;
-	playerId = state.PlayerId;
+	}
 	currentGameState = state;
-	localStorage.setItem("PlayerId", playerId);
-	updateFoodBank(state.FoodBank);
-	updatePlayers(state.Players);
-	updateHand(state.PlayerCards);
 }
 
-function showAction(msg) {
+function showAction(msg, state) {
 	switch(msg.Action.Type) {
 		case "Add creature":
-			var player = findPlayer(msg.Action.Value.Player)
+			showActionAddCreature(msg, state);
 			break;	
+		case "Add single property":
+			showActionAddSingleProperty(msg, state);
+			break;
+		case "Add pair property":
+			showActionAddPairProperty(msg, state);
+			break;
 		default:
 			messageInProcessing = null;
 	}
+}
+
+function showActionAddCreature(msg, state) {
+	var player = findPlayer(msg.Action.Arguments.Player)
+			var creature = null;
+			var oldCreatures = currentGameState.Players[msg.Action.Arguments.Player].Creatures;
+			var newCreatures = state.Players[msg.Action.Arguments.Player].Creatures;
+			for (var i in newCreatures) {
+				var found = false
+				for (var j in oldCreatures)
+				{
+					if (newCreatures[i].Id == oldCreatures[j].Id) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					creature = new Creature(newCreatures[i], 0, 0);
+					game.add.existing(creature);
+					player.Creatures.add(creature);
+					break;
+				}
+			}
+			if (player.Id == playerId) {
+				var card = findCardInHand(msg.Action.Arguments.Card);
+				hand.remove(card);
+				arrangeCardsInHand();
+				arrangePlayerCreatures(player);
+			} else {
+				creature.y = mainArea.height;
+				arrangePlayerCreatures(player);
+			}
+			messageInProcessing = null;
+}
+
+function showActionAddSingleProperty(msg, state) {
+	var creature = null;
+			var player = null;
+			var card = null;
+			for (var i in players.children) {
+				for (var j in players.getChildAt(i).Creatures.children) {
+					if (players.getChildAt(i).Creatures.getChildAt(j).Id == msg.Action.Arguments.Creature) {
+						creature = players.getChildAt(i).Creatures.getChildAt(j);
+						break;
+					}
+				}
+				if (creature != null) {
+					player = players.getChildAt(i);
+					break;
+				}
+			}
+			var oldCards = null;
+			if (currentGameState.Players[player.Id].Creatures[creature.Id]) {
+				oldCards = currentGameState.Players[player.Id].Creatures[creature.Id].Cards;
+			}
+			var newCards = null;
+			if (state.Players[player.Id].Creatures[creature.Id]) {
+				newCards = state.Players[player.Id].Creatures[creature.Id].Cards;
+			}
+			for (var i in newCards) {
+				var found = false
+				for (var j in oldCards)
+				{
+					if (newCards[i].Id == oldCards[j].Id) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					card = new Card(newCards[i], 0, 0);
+					game.add.existing(card);
+					addCard(creature, card)
+					break;
+				}
+			}
+			if (player.Id == playerId) {
+				var card = findCardInHand(card.Id);
+				hand.remove(card);
+				arrangeCardsInHand();
+			} else {
+			}
+			messageInProcessing = null;
+}
+
+function showActionAddPairProperty(msg, state) {
+	var firstCreature = null;
+	var secondCreature = null;
+			var player = null;
+			var firstCard = null;
+			var secondCard = null;
+			for (var i in players.children) {
+				for (var j in players.getChildAt(i).Creatures.children) {
+					if (players.getChildAt(i).Creatures.getChildAt(j).Id == msg.Action.Arguments.Pair[0]) {
+						firstCreature = players.getChildAt(i).Creatures.getChildAt(j);
+					}
+					if (players.getChildAt(i).Creatures.getChildAt(j).Id == msg.Action.Arguments.Pair[1]) {
+						secondCreature = players.getChildAt(i).Creatures.getChildAt(j);
+					}
+				}
+				if (firstCreature != null) {
+					player = players.getChildAt(i);
+					break;
+				}
+			}
+			var oldCards = null;
+			if (currentGameState.Players[player.Id].Creatures[firstCreature.Id]) {
+				oldCards = currentGameState.Players[player.Id].Creatures[firstCreature.Id].Cards;
+			}
+			var newCards = null;
+			if (state.Players[player.Id].Creatures[firstCreature.Id]) {
+				newCards = state.Players[player.Id].Creatures[firstCreature.Id].Cards;
+			}
+			for (var i in newCards) {
+				var found = false
+				for (var j in oldCards)
+				{
+					if (newCards[i].Id == oldCards[j].Id) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					firstCard = new Card(newCards[i], 0, 0);
+					secondCard = new Card(newCards[i], 0, 0);
+					game.add.existing(firstCard);
+					game.add.existing(secondCard);
+					addCard(firstCreature, firstCard);
+					addCard(secondCreature, secondCard);
+					break;
+				}
+			}
+			if (player.Id == playerId) {
+				var card = findCardInHand(firstCard.Id);
+				hand.remove(card);
+				arrangeCardsInHand();
+			} else {
+			}
+			messageInProcessing = null;
 }
 
 function update() {
@@ -253,13 +397,23 @@ PlayerCreatures = function(playerDTO, x, y, angle) {
 	this.x = x;
 	this.y = y;
 	this.angle = angle;
-	var totalCreatureWidthHalf = cardWidth/2 * Object.keys(playerDTO.Creatures).length/2;
+	this.Id = playerDTO.Id;
+	this.Creatures = game.add.group();
+	this.add(this.Creatures)
 	for (var i in playerDTO.Creatures) {
-		var creature = new Creature(playerDTO.Creatures[i], (+i + +1)*cardWidth/2-totalCreatureWidthHalf, 0);
+		var creature = new Creature(playerDTO.Creatures[i], 0, 0);
 		game.add.existing(creature);
-		this.add(creature);
+		this.Creatures.add(creature);
 	}
+	arrangePlayerCreatures(this);
 };
+
+function arrangePlayerCreatures(player) {
+	var totalCreatureWidthHalf = cardWidth/2 * player.Creatures.children.length/2;
+	for (var j in player.Creatures.children) {
+		game.add.tween(player.Creatures.getChildAt(j)).to({x: (+j + +1)*cardWidth/2-totalCreatureWidthHalf, y: 0}, 1000, Phaser.Easing.Quadratic.InOut, true);
+	}
+}
 
 PlayerCreatures.prototype = Object.create(Phaser.Group.prototype);
 PlayerCreatures.prototype.constructor = PlayerCreatures;
@@ -270,35 +424,28 @@ Creature = function(creatureDTO, x, y) {
 	this.y = y-cardHeight/4;
 	this.Id = creatureDTO.Id;
 	this.Traits = creatureDTO.Traits;
-	for (var i in creatureDTO.Cards) {
-		var card = new Card(creatureDTO.Cards[i], 0, cardEdgeWidth/2 * i);
-		game.add.existing(card);
-		card.inputEnabled = true;
-		this.add(card);
-		card.selection = null;
-		if ($.inArray("Used", card.getActiveProperty().Traits) != -1) {
-			card.rotation = Math.PI/2;
-		} else {
-			card.events.onInputOver.add(propertyOver, card);
-			card.events.onInputOut.add(propertyOut, card);
-			addPropertyEvents(card);
-		}
-	}
-	var back = new Phaser.Sprite(game, 0, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
-	back.inputEnabled = true;
-	back.anchor.setTo(0.5, 0.5);
-    back.scale.setTo(0.5, 0.5);
-    back.events.onInputUp.add(function (card) {
+	this.Properties = game.add.group();
+	this.add(this.Properties);
+	//var back = new Phaser.Sprite(game, 0, creatureDTO.Cards.length*cardEdgeWidth/2, 'back');
+	this.back = new Phaser.Sprite(game, 0, 0, 'back');
+	this.back.inputEnabled = true;
+	this.back.anchor.setTo(0.5, 0.5);
+    this.back.scale.setTo(0.5, 0.5);
+    this.back.events.onInputUp.add(function (card) {
     	executeActionGrabFood(card.parent.Id);
     }, card);
-    back.events.onInputOut.add(propertyOut, back);
-    back.events.onInputOver.add(backOver, back);
-	game.add.existing(back);
-	this.add(back);
+    this.back.events.onInputOut.add(propertyOut, this.back);
+    this.back.events.onInputOver.add(backOver,this.back);
+	game.add.existing(this.back);
+	this.add(this.back);
+	for (var i in creatureDTO.Cards) {
+		var card = new Card(creatureDTO.Cards[i], 0, cardEdgeWidth/2 * i);
+		addCard(this, card);
+	}
 	var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
 	this.Food = game.add.graphics();
-	this.Food.x = back.x;
-	this.Food.y = back.y;
+	this.Food.x = this.back.x;
+	this.Food.y = this.back.y;
 	this.add(this.Food);
     this.Food.beginFill(0xFF0000, 1);
     for (var i in creatureDTO.Traits) {
@@ -323,8 +470,25 @@ Creature = function(creatureDTO, x, y) {
     foodBank.endFill();
 };
 
+function addCard(creature, card) {
+	card.y = -cardEdgeWidth/2 * (creature.Properties.children.length + 1);
+	card.inputEnabled = true;
+	creature.Properties.add(card);
+	card.bringToTop();
+	card.selection = null;
+	if ($.inArray("Used", card.getActiveProperty().Traits) != -1) {
+		card.rotation = Math.PI/2;
+	} else {
+		card.events.onInputOver.add(propertyOver, card);
+		card.events.onInputOut.add(propertyOut, card);
+		addPropertyEvents(card);
+	}
+	card.sendToBack();
+}
+
 Creature.prototype = Object.create(Phaser.Group.prototype);
 Creature.prototype.constructor = Creature;
+Creature.prototype.back = null;
 
 function addPropertyEvents(card) {
 	var traits = card.getActiveProperty().Traits; 
@@ -351,16 +515,16 @@ function addPropertyEvents(card) {
 function propertyOver(card, pointer) {
 	if (card.selection == null) {
 		card.selection = game.add.graphics();
-		card.parent.parent.add(card.selection);
-		var creature = card.parent;
+		card.parent.parent.parent.parent.add(card.selection);
+		var creature = card.parent.parent;
 		card.selection.lineStyle(1, 0x000000, 1);
 		card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + card.position.y - cardHeight/4  + 4 , cardWidth/2-8, cardEdgeWidth/2-8, 3);
 		var property = card.getActiveProperty();
 		if (property.pair) {
-			var pairCard = getPairProperty(card);
-			if (pairCard != null) {
-				var creature = pairCard.parent;
-				card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + pairCard.position.y - cardHeight/4 + 4, cardWidth/2-8, cardEdgeWidth/2-8, 3);
+			var pairProperty = getPairProperty(card);
+			if (pairProperty != null) {
+				var creature = pairProperty.parent.parent;
+				card.selection.drawRoundedRect(creature.position.x + 4 - cardWidth/4, creature.position.y + pairProperty.position.y - cardHeight/4 + 4, cardWidth/2-8, cardEdgeWidth/2-8, 3);
 			}
 		}
 	}
@@ -369,7 +533,7 @@ function propertyOver(card, pointer) {
 function backOver(card, pointer) {
 	if (card.selection == null) {
 		card.selection = game.add.graphics();
-		card.parent.parent.add(card.selection);
+		card.parent.parent.parent.add(card.selection);
 		var creature = card.parent;
 		card.selection.lineStyle(1, 0x000000, 1);
 		card.selection.drawRoundedRect(creature.position.x + 8 - cardWidth/4, creature.position.y + card.position.y - cardHeight/4  + 8 , cardWidth/2-16, cardHeight/2-16, 3);
@@ -452,7 +616,7 @@ function cardDragUpdate(card) {
 			selectionRect.destroy();
 		}
 		selectionRect = game.add.graphics();
-		intersectedCreature.parent.add(selectionRect);
+		intersectedCreature.parent.parent.add(selectionRect);
 		selectionRect.lineStyle(2, 0xFFFFFF, 1);
 		selectionRect.drawRoundedRect(-cardWidth/4-10, -cardHeight/4-10, bounds.width+20, bounds.height+20);
 		selectionRect.x = intersectedCreature.x;
@@ -467,13 +631,13 @@ function cardDragUpdate(card) {
 }
 
 function getIntersectedCreature(rectangle) {
-	var maxIntersectObject;
+	var maxIntersectObject = null;
 	var maxIntersectArea = 0;
 	if (Phaser.Rectangle.intersects(rectangle,mainArea)) {
 		for (var i in players.children) {
-			for (var j in players.getChildAt(i).children) {
-				var creature = players.getChildAt(i).getChildAt(j);
-				var bounds = creature.getBounds();
+			for (var j in players.getChildAt(i).Creatures.children) {
+				var creature = players.getChildAt(i).Creatures.getChildAt(j);
+				var bounds = creature.back.getBounds();
 				var intersectionRect = Phaser.Rectangle.intersection(rectangle, bounds);
 				if (! intersectionRect.empty) {
 					var intersectionRectArea = intersectionRect.width * intersectionRect.height;
@@ -491,9 +655,9 @@ function getIntersectedCreature(rectangle) {
 function getCreatureAtPoint(point) {
 	if (Phaser.Rectangle.containsPoint(mainArea, point)) {
 		for (var i in players.children) {
-			for (var j in players.getChildAt(i).children) {
-				var creature = players.getChildAt(i).getChildAt(j);
-				var bounds = creature.getBounds();
+			for (var j in players.getChildAt(i).Creatures.children) {
+				var creature = players.getChildAt(i).Creatures.getChildAt(j);
+				var bounds = creature.back.getBounds();
 				if (Phaser.Rectangle.containsPoint(bounds, point)) {
 					return creature;
 				}
@@ -504,15 +668,15 @@ function getCreatureAtPoint(point) {
 }
 
 function getPairProperty(firstProperty) {
-	var player = firstProperty.parent.parent;
-	for (var j in player.children) {
-		var creature = player.getChildAt(j);
-		for (var k = 0; k<creature.children.length-1; k++) {
-			if (firstProperty.parent.Id == creature.getChildAt(k).parent.Id) {
-				continue;
-			}
-			if (creature.getChildAt(k).Id == firstProperty.Id) {
-				return creature.getChildAt(k);
+	var player = firstProperty.parent.parent.parent.parent;
+	for (var j in player.Creatures.children) {
+		var creature = player.Creatures.getChildAt(j);
+		if (firstProperty.parent.parent.Id == creature.Id) {
+			continue;
+		}
+		for (var k = 0; k<creature.Properties.children.length; k++) {
+			if (creature.Properties.getChildAt(k).Id == firstProperty.Id) {
+				return creature.Properties.getChildAt(k);
 			}
 		}
 	}
@@ -524,11 +688,14 @@ function getCardAtPoint(point) {
 	if (creature == null) {
 		return null;
 	}
-	for (var i = creature.children.length-2; i>=0; i++) {
-		if (Phaser.Rectangle.containsPoint(creature.getChildAt(i).getBounds(), point)) {
+	for (var i = creature.Properties.children.length-2; i>=0; i++) {
+		if (Phaser.Rectangle.containsPoint(creature.Properties.getChildAt(i).getBounds(), point)) {
 			return creature.getChildAt(i);
 		}
 	}
+	if (Phaser.Rectangle.containsPoint(creature.back.getBounds(), point)) {
+			return creature.back;
+		}
 	return null;
 }
 

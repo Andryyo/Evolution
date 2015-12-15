@@ -35,7 +35,7 @@ function executeAddCreatureAction(cardId) {
 		Type: "Add creature",
 		Arguments: {
 			Card: cardId,
-			Player: currentPlayerId
+			Player: playerId
 		}
 	};
 	return executeAction(action);
@@ -56,9 +56,11 @@ function executeAddPairPropertyAction(firstCreatureId, secondCreatureId, propert
 	var action = {
 		Type: "Add pair property",
 		Arguments: {
-			FirstCreature: firstCreatureId,
+			Pair: [
+				firstCreatureId,
+				secondCreatureId
+			],
 			Property: propertyId,
-			SecondCreature:	secondCreatureId,
 		}
 	};
 	return executeAction(action);

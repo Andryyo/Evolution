@@ -12,7 +12,7 @@ type Filter interface {
 }
 
 type FilterDeny struct {
-	condition Condition
+	condition       Condition
 	removeCondition Condition
 }
 
@@ -31,7 +31,7 @@ type TraitsCount struct {
 
 type Accessor struct {
 	source Source
-	mode AccessorMode
+	mode   AccessorMode
 }
 
 func (t TraitsCount) GoString() string {
@@ -86,9 +86,9 @@ func (f FilterDeny) GoString() string {
 }
 
 type FilterAllow struct {
-	condition Condition
+	condition       Condition
 	removeCondition Condition
-	actions []*Action
+	actions         []*Action
 }
 
 func (f *FilterAllow) GetType() FilterType {
@@ -101,7 +101,7 @@ func (f *FilterAllow) GetCondition() Condition {
 
 func (f *FilterAllow) GetActions(game *Game) []*Action {
 	var instantiatedActions []*Action
-	for _,action := range f.actions {
+	for _, action := range f.actions {
 		source := action.InstantiateFilterPrototypeAction(game, nil, true)
 		if source != nil {
 			instantiatedActions = append(instantiatedActions, source)
@@ -128,7 +128,7 @@ func (f *FilterAllow) InstantiateFilterPrototype(game *Game, reason *Action, ins
 		removeCondition = f.removeCondition.InstantiateFilterPrototypeCondition(game, reason, instantiate)
 	}
 	var instantiatedActions []*Action
-	for _,action := range f.actions {
+	for _, action := range f.actions {
 		source := action.InstantiateFilterPrototypeAction(game, reason, instantiate)
 		instantiatedActions = append(instantiatedActions, source)
 	}
@@ -140,10 +140,10 @@ func NewFilterAllow(condition Condition, removeCondition Condition, actions ...*
 }
 
 type FilterAction struct {
-	actionType FilterType
-	condition Condition
+	actionType      FilterType
+	condition       Condition
 	removeCondition Condition
-	action    *Action
+	action          *Action
 }
 
 func (f *FilterAction) GetType() FilterType {
@@ -170,10 +170,10 @@ func (f *FilterAction) InstantiateFilterPrototype(game *Game, reason *Action, in
 	var condition Condition
 	var removeCondition Condition
 	if f.condition != nil {
-		condition = f.condition.InstantiateFilterPrototypeCondition(game, reason, instantiate)		
+		condition = f.condition.InstantiateFilterPrototypeCondition(game, reason, instantiate)
 	}
 	if f.removeCondition != nil {
-		removeCondition = f.removeCondition.InstantiateFilterPrototypeCondition(game, reason, instantiate)		
+		removeCondition = f.removeCondition.InstantiateFilterPrototypeCondition(game, reason, instantiate)
 	}
 	action := f.action.InstantiateFilterPrototypeAction(game, reason, instantiate)
 	return &FilterAction{f.actionType, condition, removeCondition, action}
@@ -181,252 +181,254 @@ func (f *FilterAction) InstantiateFilterPrototype(game *Game, reason *Action, in
 
 func InstantiateFilterSourcePrototype(game *Game, reason *Action, parameter Source, instantiate bool) Source {
 	switch t := parameter.(type) {
-		case []Filter:
-			filters := make([]Filter, 0, len(t))
-			for _,element := range t {
-				filters = append(filters, element.InstantiateFilterPrototype(game, reason, instantiate))
+	case []Filter:
+		filters := make([]Filter, 0, len(t))
+		for _, element := range t {
+			filters = append(filters, element.InstantiateFilterPrototype(game, reason, instantiate))
+		}
+		return filters
+	case []*Action:
+		actions := make([]*Action, 0, len(t))
+		for _, element := range t {
+			instantiatedAction := element.InstantiateFilterPrototypeAction(game, reason, instantiate)
+			if instantiatedAction != nil {
+				actions = append(actions, instantiatedAction)
 			}
-			return filters
-		case []*Action:
-			actions := make([]*Action, 0, len(t))
-			for _,element := range t {
-				instantiatedAction := element.InstantiateFilterPrototypeAction(game, reason, instantiate)
-				if instantiatedAction != nil {
-					actions = append(actions, instantiatedAction)
-				}
+		}
+		return actions
+	case InstantiationOff:
+		if instantiate {
+			return InstantiateFilterSourcePrototype(game, reason, t.source, false)
+		} else {
+			return InstantiationOff{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+		}
+	case InstantiationOn:
+		if !instantiate {
+			return InstantiateFilterSourcePrototype(game, reason, t.source, true)
+		} else {
+			return InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+		}
+	case TypeOf:
+		if !instantiate {
+			return TypeOf{t.source}
+		}
+		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
+		if all, ok := instantiatedSource.(AllOf); ok {
+			results := make([]Source, 0, len(all.Sources))
+			for _, source := range all.Sources {
+				results = append(results, InstantiateFilterSourcePrototype(game, reason, TypeOf{source}, instantiate))
 			}
-			return actions
-		case InstantiationOff:
-			if instantiate {
-				return InstantiateFilterSourcePrototype(game, reason, t.source, false)
-			} else {
-				return InstantiationOff{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+			return AllOf{results}
+		}
+		if oneOf, ok := instantiatedSource.(OneOf); ok {
+			results := make([]Source, 0, len(oneOf.Sources))
+			for _, source := range oneOf.Sources {
+				results = append(results, InstantiateFilterSourcePrototype(game, reason, TypeOf{source}, instantiate))
 			}
-		case InstantiationOn:
-			if !instantiate {
-				return InstantiateFilterSourcePrototype(game, reason, t.source, true)
-			} else {
-				return InstantiationOn{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)}
+			return OneOf{results}
+		}
+		switch instantiatedSource.(type) {
+		case *Creature:
+			return TYPE_CREATURE
+		case *Property:
+			return TYPE_PROPERTY
+		default:
+			return nil
+		}
+	case Accessor:
+		if !instantiate {
+			return Accessor{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate), t.mode}
+		}
+		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
+		if all, ok := instantiatedSource.(AllOf); ok {
+			results := make([]Source, 0, len(all.Sources))
+			for _, source := range all.Sources {
+				results = append(results, InstantiateFilterSourcePrototype(game, reason, Accessor{source, t.mode}, instantiate))
 			}
-		case TypeOf:
-			if !instantiate {
-				return TypeOf{t.source}
+			return AllOf{results}
+		}
+		if oneOf, ok := instantiatedSource.(OneOf); ok {
+			results := make([]Source, 0, len(oneOf.Sources))
+			for _, source := range oneOf.Sources {
+				results = append(results, InstantiateFilterSourcePrototype(game, reason, Accessor{source, t.mode}, instantiate))
 			}
-			instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
-			if all,ok := instantiatedSource.(AllOf) ; ok {
-				results := make([]Source, 0, len(all.Sources))
-				for _,source := range all.Sources {
-					results = append(results, InstantiateFilterSourcePrototype(game, reason, TypeOf{source}, instantiate))
-				}
-				return AllOf{results}
+			return OneOf{results}
+		}
+		switch t.mode {
+		case ACCESSOR_MODE_ONE_OF_CREATURE_PROPERTIES:
+			creature := instantiatedSource.(*Creature)
+			result := make([]Source, 0, len(creature.Tail))
+			for _, card := range creature.Tail {
+				result = append(result, card.ActiveProperty)
 			}
-			if oneOf,ok := instantiatedSource.(OneOf) ; ok {
-				results := make([]Source, 0, len(oneOf.Sources))
-				for _,source := range oneOf.Sources {
-					results = append(results, InstantiateFilterSourcePrototype(game, reason, TypeOf{source}, instantiate))
-				}
-				return OneOf{results}
+			return OneOf{result}
+		case ACCESSOR_MODE_CREATURE_OWNER:
+			creature := instantiatedSource.(*Creature)
+			return creature.Owner
+		case ACCESSOR_MODE_PROPERTY_OWNER:
+			property := instantiatedSource.(*Property)
+			return property.ContainingCard.Owners[0]
+		case ACCESSOR_MODE_CREATURES:
+			player := instantiatedSource.(*Player)
+			result := make([]Source, 0, len(player.Creatures))
+			for _, creature := range player.Creatures {
+				result = append(result, creature)
 			}
-			switch instantiatedSource.(type) {
-				case *Creature:
-					return TYPE_CREATURE
-				case *Property:
-					return TYPE_PROPERTY
-				default:
-					return nil
+			return OneOf{result}
+		default:
+			return nil
+		}
+	case TraitsCount:
+		instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
+		instantiatedTrait := InstantiateFilterSourcePrototype(game, reason, t.traits, instantiate)
+		if !instantiate {
+			return TraitsCount{instantiatedSource, instantiatedTrait}
+		}
+		if all, ok := instantiatedSource.(AllOf); ok {
+			results := make([]Source, 0, len(all.Sources))
+			for _, source := range all.Sources {
+				results = append(results, InstantiateFilterSourcePrototype(game, reason, TraitsCount{source, instantiatedTrait}, instantiate))
 			}
-		case Accessor:
-			if !instantiate {
-				return Accessor{InstantiateFilterSourcePrototype(game, reason, t.source, instantiate), t.mode}
+			return AllOf{results}
+		}
+		if oneOf, ok := instantiatedSource.(OneOf); ok {
+			results := make([]Source, 0, len(oneOf.Sources))
+			for _, source := range oneOf.Sources {
+				results = append(results, InstantiateFilterSourcePrototype(game, reason, TraitsCount{source, instantiatedTrait}, instantiate))
 			}
-			instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
-			if all,ok := instantiatedSource.(AllOf) ; ok {
-				results := make([]Source, 0, len(all.Sources))
-				for _,source := range all.Sources {
-					results = append(results, InstantiateFilterSourcePrototype(game, reason, Accessor{source, t.mode}, instantiate))
-				}
-				return AllOf{results}
+			return OneOf{results}
+		}
+		if oneOfTrait, ok := instantiatedTrait.(OneOf); ok {
+			results := make([]Source, 0, len(oneOfTrait.Sources))
+			for _, trait := range oneOfTrait.Sources {
+				results = append(results, InstantiateFilterSourcePrototype(game, reason, TraitsCount{instantiatedSource, trait}, instantiate))
 			}
-			if oneOf,ok := instantiatedSource.(OneOf) ; ok {
-				results := make([]Source, 0, len(oneOf.Sources))
-				for _,source := range oneOf.Sources {
-					results = append(results, InstantiateFilterSourcePrototype(game, reason, Accessor{source, t.mode}, instantiate))
-				}
-				return OneOf{results}
-			}
-			switch t.mode {
-				case ACCESSOR_MODE_ONE_OF_CREATURE_PROPERTIES:
-					creature := instantiatedSource.(*Creature)
-					result := make([]Source, 0, len(creature.Tail))
-					for _, card := range creature.Tail {
-						result = append(result, card.ActiveProperty)
-					}
-					return OneOf{result}
-				case ACCESSOR_MODE_CREATURE_OWNER:
-					creature := instantiatedSource.(*Creature)
-					return creature.Owner
-				case ACCESSOR_MODE_PROPERTY_OWNER:
-					property := instantiatedSource.(*Property)
-					return property.ContainingCard.Owners[0]
-				case ACCESSOR_MODE_CREATURES:
-					player := instantiatedSource.(*Player)
-					result := make([]Source, 0, len(player.Creatures))
-					for _,creature := range player.Creatures {
-						result = append(result, creature)
-					}
-					return OneOf{result}
-				default:
-					return nil
-			}
-		case TraitsCount:
-			instantiatedSource := InstantiateFilterSourcePrototype(game, reason, t.source, instantiate)
-			instantiatedTrait := InstantiateFilterSourcePrototype(game, reason, t.traits, instantiate)
-			if !instantiate {
-				return TraitsCount{instantiatedSource, instantiatedTrait}
-			}
-			if all,ok := instantiatedSource.(AllOf) ; ok {
-				results := make([]Source, 0, len(all.Sources))
-				for _,source := range all.Sources {
-					results = append(results, InstantiateFilterSourcePrototype(game, reason, TraitsCount{source, instantiatedTrait}, instantiate))
-				}
-				return AllOf{results}
-			}
-			if oneOf,ok := instantiatedSource.(OneOf) ; ok {
-				results := make([]Source, 0, len(oneOf.Sources))
-				for _,source := range oneOf.Sources {
-					results = append(results, InstantiateFilterSourcePrototype(game, reason, TraitsCount{source, instantiatedTrait}, instantiate))
-				}
-				return OneOf{results}
-			}
-			if oneOfTrait, ok := instantiatedTrait.(OneOf) ; ok {
-				results := make([]Source, 0, len(oneOfTrait.Sources))
-				for _,trait := range oneOfTrait.Sources {
-					results = append(results, InstantiateFilterSourcePrototype(game, reason, TraitsCount{instantiatedSource, trait}, instantiate))
-				}
-				return OneOf{results}
-			}
-			if allOfTrait, ok := instantiatedTrait.(AllOf) ; ok {
-				count := 0
-				for _,sourceTrait := range instantiatedSource.(WithTraits).GetTraits() {
-					for _,trait := range allOfTrait.Sources {
-						if sourceTrait == trait.(TraitType) {
-							count ++
-						}
-					}
-				
-				}
-				return count
-			}
+			return OneOf{results}
+		}
+		if allOfTrait, ok := instantiatedTrait.(AllOf); ok {
 			count := 0
-			for _,sourceTrait := range instantiatedSource.(WithTraits).GetTraits() {
-				if sourceTrait == instantiatedTrait.(TraitType) {
-					count ++
+			for _, sourceTrait := range instantiatedSource.(WithTraits).GetTraits() {
+				for _, trait := range allOfTrait.Sources {
+					if sourceTrait == trait.(TraitType) {
+						count++
+					}
 				}
+
 			}
 			return count
-		case *Action:
-			return t.InstantiateFilterPrototypeAction(game, reason, instantiate)
-		case Filter:
-			return t.InstantiateFilterPrototype(game, reason, instantiate)
-		case Condition:
-			return t.InstantiateFilterPrototypeCondition(game, reason, instantiate)
-		case FilterSourcePrototype:
-			if !instantiate {
-				return t
+		}
+		count := 0
+		for _, sourceTrait := range instantiatedSource.(WithTraits).GetTraits() {
+			if sourceTrait == instantiatedTrait.(TraitType) {
+				count++
 			}
-			switch parameter {
-				case FILTER_SOURCE_PARAMETER_PLAYER:
-					return reason.Arguments[PARAMETER_PLAYER]
-				case FILTER_SOURCE_PARAMETER_PROPERTY:
-					return reason.Arguments[PARAMETER_PROPERTY]
-				case FILTER_SOURCE_PARAMETER_CREATURE:
-					return reason.Arguments[PARAMETER_CREATURE]
-				case FILTER_SOURCE_PARAMETER_SOURCE_CREATURE:
-					return reason.Arguments[PARAMETER_SOURCE_CREATURE]
-				case FILTER_SOURCE_PARAMETER_TARGET_CREATURE:
-					return reason.Arguments[PARAMETER_TARGET_CREATURE]
-				case FILTER_SOURCE_PARAMETER_TRAIT:
-					return reason.Arguments[PARAMETER_TRAIT]
-				case FILTER_SOURCE_PARAMETER_ALL_PLAYERS:
-					result := make([]Source, 0, game.PlayersCount)
-					game.Players.Do(func (player interface{}) {
-						result = append(result, player.(*Player))
-					})
-					return AllOf{result}
-				case FILTER_SOURCE_PARAMETER_LEFT_CREATURE:
-					return reason.Arguments[PARAMETER_PAIR].([]*Creature)[0]
-				case FILTER_SOURCE_PARAMETER_RIGHT_CREATURE:
-					return reason.Arguments[PARAMETER_PAIR].([]*Creature)[1]
-				case FILTER_SOURCE_PARAMETER_PAIR:
-					return reason.Arguments[PARAMETER_PAIR]		
-				case FILTER_SOURCE_PARAMETER_ANY_FOOD:
-					return OneOf{[]Source{TRAIT_FOOD, TRAIT_ADDITIONAL_FOOD}}
-				case FILTER_SOURCE_PARAMETER_ALL_FOOD:
-					return AllOf{[]Source{TRAIT_FOOD, TRAIT_ADDITIONAL_FOOD}}
-				case FILTER_SOURCE_PARAMETER_ALL_FOOD_AND_FAT:
-					return AllOf{[]Source{TRAIT_FOOD, TRAIT_ADDITIONAL_FOOD, TRAIT_FAT}}
-				case FILTER_SOURCE_PARAMETER_FOOD_AND_FAT_LIMIT:
-					return AllOf{[]Source{TRAIT_REQUIRE_FOOD, TRAIT_FAT_TISSUE}}
-				case FILTER_SOURCE_PARAMETER_PHASE:
-					return reason.Arguments[PARAMETER_PHASE]
-				case FILTER_SOURCE_PARAMETER_SOURCE:
-					return reason.Arguments[PARAMETER_SOURCE]
-				case FILTER_SOURCE_PARAMETER_CREATURE_PROPERTIES:
-					creature := reason.Arguments[PARAMETER_CREATURE].(*Creature)
-					properties := make([]*Property, 0, len(creature.Tail))
-					for _,card := range creature.Tail {
-						properties = append(properties, card.ActiveProperty)
+		}
+		return count
+	case *Action:
+		return t.InstantiateFilterPrototypeAction(game, reason, instantiate)
+	case Filter:
+		return t.InstantiateFilterPrototype(game, reason, instantiate)
+	case Condition:
+		return t.InstantiateFilterPrototypeCondition(game, reason, instantiate)
+	case FilterSourcePrototype:
+		if !instantiate {
+			return t
+		}
+		switch parameter {
+		case FILTER_SOURCE_PARAMETER_CARD:
+			return reason.Arguments[PARAMETER_CARD]
+		case FILTER_SOURCE_PARAMETER_PLAYER:
+			return reason.Arguments[PARAMETER_PLAYER]
+		case FILTER_SOURCE_PARAMETER_PROPERTY:
+			return reason.Arguments[PARAMETER_PROPERTY]
+		case FILTER_SOURCE_PARAMETER_CREATURE:
+			return reason.Arguments[PARAMETER_CREATURE]
+		case FILTER_SOURCE_PARAMETER_SOURCE_CREATURE:
+			return reason.Arguments[PARAMETER_SOURCE_CREATURE]
+		case FILTER_SOURCE_PARAMETER_TARGET_CREATURE:
+			return reason.Arguments[PARAMETER_TARGET_CREATURE]
+		case FILTER_SOURCE_PARAMETER_TRAIT:
+			return reason.Arguments[PARAMETER_TRAIT]
+		case FILTER_SOURCE_PARAMETER_ALL_PLAYERS:
+			result := make([]Source, 0, game.PlayersCount)
+			game.Players.Do(func(player interface{}) {
+				result = append(result, player.(*Player))
+			})
+			return AllOf{result}
+		case FILTER_SOURCE_PARAMETER_LEFT_CREATURE:
+			return reason.Arguments[PARAMETER_PAIR].([]*Creature)[0]
+		case FILTER_SOURCE_PARAMETER_RIGHT_CREATURE:
+			return reason.Arguments[PARAMETER_PAIR].([]*Creature)[1]
+		case FILTER_SOURCE_PARAMETER_PAIR:
+			return reason.Arguments[PARAMETER_PAIR]
+		case FILTER_SOURCE_PARAMETER_ANY_FOOD:
+			return OneOf{[]Source{TRAIT_FOOD, TRAIT_ADDITIONAL_FOOD}}
+		case FILTER_SOURCE_PARAMETER_ALL_FOOD:
+			return AllOf{[]Source{TRAIT_FOOD, TRAIT_ADDITIONAL_FOOD}}
+		case FILTER_SOURCE_PARAMETER_ALL_FOOD_AND_FAT:
+			return AllOf{[]Source{TRAIT_FOOD, TRAIT_ADDITIONAL_FOOD, TRAIT_FAT}}
+		case FILTER_SOURCE_PARAMETER_FOOD_AND_FAT_LIMIT:
+			return AllOf{[]Source{TRAIT_REQUIRE_FOOD, TRAIT_FAT_TISSUE}}
+		case FILTER_SOURCE_PARAMETER_PHASE:
+			return reason.Arguments[PARAMETER_PHASE]
+		case FILTER_SOURCE_PARAMETER_SOURCE:
+			return reason.Arguments[PARAMETER_SOURCE]
+		case FILTER_SOURCE_PARAMETER_CREATURE_PROPERTIES:
+			creature := reason.Arguments[PARAMETER_CREATURE].(*Creature)
+			properties := make([]*Property, 0, len(creature.Tail))
+			for _, card := range creature.Tail {
+				properties = append(properties, card.ActiveProperty)
+			}
+			return properties
+		case FILTER_SOURCE_PARAMETER_FOOD_BANK_COUNT:
+			return game.Food
+		case FILTER_SOURCE_PARAMETER_CURRENT_PLAYER:
+			return game.CurrentPlayer
+		case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS:
+			result := make([]Source, 0, len(game.CurrentPlayer.Cards))
+			for _, card := range game.CurrentPlayer.Cards {
+				result = append(result, card)
+			}
+			return OneOf{result}
+		case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS_PROPERTIES:
+			result := make([]Source, 0, len(game.CurrentPlayer.Cards)*2)
+			for _, card := range game.CurrentPlayer.Cards {
+				for _, property := range card.Properties {
+					result = append(result, property)
+				}
+			}
+			return OneOf{result}
+		case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES_PAIR:
+			result := make([]Source, 0, len(game.CurrentPlayer.Creatures))
+			for _, first := range game.CurrentPlayer.Creatures {
+				for _, second := range game.CurrentPlayer.Creatures {
+					if first != second {
+						result = append(result, []*Creature{first, second})
 					}
-					return properties
-				case FILTER_SOURCE_PARAMETER_FOOD_BANK_COUNT:
-					return game.Food
-				case FILTER_SOURCE_PARAMETER_CURRENT_PLAYER:
-					return game.CurrentPlayer
-				case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS:
-					result := make([]Source, 0, len(game.CurrentPlayer.Cards))
-					for _, card := range game.CurrentPlayer.Cards {
-						result = append(result, card)
-					}
-					return OneOf{result}
-				case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CARDS_PROPERTIES:
-					result := make([]Source, 0, len(game.CurrentPlayer.Cards)*2)
-					for _, card := range game.CurrentPlayer.Cards {
-						for _, property := range card.Properties {
-							result = append(result, property)
-						}
-					}
-					return OneOf{result}
-				case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES_PAIR:
-					result := make([]Source, 0, len(game.CurrentPlayer.Creatures))
-					for _, first := range game.CurrentPlayer.Creatures {
-						for _, second := range game.CurrentPlayer.Creatures {
-							if first != second {
-								result = append(result, []*Creature{first, second})
-							}
-						}
-					}
-					return OneOf{result}
-				case FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES:
-					result := make([]Source, 0, 10)
-					game.Players.Do(
-						func (val interface{}) {
-							for _, creature := range val.(*Player).Creatures {
-								result = append(result, creature)
-							}
-					})
-					return OneOf{result}
-				case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES:
-					result := make([]Source, 0, len(game.CurrentPlayer.Cards)*2)
-					for _, creature := range game.CurrentPlayer.Creatures {
+				}
+			}
+			return OneOf{result}
+		case FILTER_SOURCE_PARAMETER_ONE_OF_CREATURES:
+			result := make([]Source, 0, 10)
+			game.Players.Do(
+				func(val interface{}) {
+					for _, creature := range val.(*Player).Creatures {
 						result = append(result, creature)
 					}
-					return OneOf{result}
-				case FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT:
-					return len(game.Deck)
-				default:
-					panic("Unknown filter source parameter")
+				})
+			return OneOf{result}
+		case FILTER_SOURCE_PARAMETER_ONE_OF_CURRENT_PLAYER_CREATURES:
+			result := make([]Source, 0, len(game.CurrentPlayer.Cards)*2)
+			for _, creature := range game.CurrentPlayer.Creatures {
+				result = append(result, creature)
 			}
+			return OneOf{result}
+		case FILTER_SOURCE_PARAMETER_BANK_CARDS_COUNT:
+			return len(game.Deck)
 		default:
-			return parameter
+			panic("Unknown filter source parameter")
+		}
+	default:
+		return parameter
 	}
 }
