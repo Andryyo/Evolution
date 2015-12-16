@@ -333,7 +333,7 @@ func (g *Game) InitializeDeck() {
 	symbiosis := &Property{Traits : []TraitType {TRAIT_PAIR, TRAIT_SYMBIOSIS}}
 	piracy := &Property{Traits : []TraitType {TRAIT_PIRACY}}
 	grazing := &Property{Traits : []TraitType {TRAIT_GRAZING}}
-	tailLoss := &Property{Traits : []TraitType {TRAIT_TAIL_LOSS}}
+	//tailLoss := &Property{Traits : []TraitType {TRAIT_TAIL_LOSS}}
 	hibernation := &Property{Traits : []TraitType{TRAIT_HIBERNATION}}
 	poisonous := &Property{Traits: []TraitType{TRAIT_POISONOUS}}
 	communication := &Property{Traits: []TraitType{TRAIT_COMMUNICATION, TRAIT_PAIR}}
@@ -353,8 +353,8 @@ func (g *Game) InitializeDeck() {
 	g.AddCard(4, sharpVision, fatTissue)
 	g.AddCard(4, symbiosis)
 	g.AddCard(4, piracy)
-	g.AddCard(4, grazing, fatTissue)
-	g.AddCard(4, tailLoss)
+	g.AddCard(8, grazing, fatTissue)
+	//g.AddCard(4, tailLoss)
 	g.AddCard(4, hibernation, carnivorous)
 	g.AddCard(4, poisonous, carnivorous)
 	g.AddCard(4, communication, carnivorous)

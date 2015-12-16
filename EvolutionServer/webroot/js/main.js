@@ -20,6 +20,9 @@ var selectionRect = null;
 var currentGameState = null;
 var messagesQueue = [];
 var messageInProcessing = null;
+var currentPhaseText = null;
+var turnIndicatorText = null;
+var click;
 
 var MESSAGE_EXECUTED_ACTION = 0
 var MESSAGE_CHOICES_LIST = 1
@@ -36,10 +39,12 @@ function preload() {
 	game.load.image('table','assets/bg_texture___wood_by_nortago.jpg');
 	game.load.image('bronze','assets/bronze.png');
 	game.load.image('copper','assets/copper.png');
-	game.load.image('pass','assets/pass.png');
-	game.load.image('end turn', 'assets/End turn.png');
-	game.load.image('vote', 'assets/vote.png');
+	game.load.spritesheet('pass','assets/pass.png', 150, 31, 2);
+	game.load.spritesheet('endturn', 'assets/endturn.png', 150, 31, 2);
+	game.load.spritesheet('vote', 'assets/vote.png', 150, 31, 2);
 	game.load.image('chain', 'assets/copper-chain-btf-0292-sm.png');
+	game.load.image('text', 'assets/text.png');
+	game.load.audio('click', 'assets/click.wav');
 }
 
 function create() {
@@ -49,9 +54,25 @@ function create() {
 	mainArea = new Phaser.Rectangle(10, 10, game.width-20, game.height-cardHeight-10);
 	handArea = new Phaser.Rectangle(10, game.height-cardHeight+10, game.width-controlAreaWidth-30, cardHeight-20);
 	controlArea = new Phaser.Rectangle(game.width-controlAreaWidth-10, game.height-cardHeight+10, controlAreaWidth, cardHeight-20);
-	game.add.button(controlArea.x + 10, controlArea.y + 50, 'pass', pass, this);
-	game.add.button(controlArea.x + 10, controlArea.y + 110, 'end turn', endTurn, this);
-	game.add.button(controlArea.x + 10, controlArea.y + 170, 'vote', vote, this);
+	var currentPhaseTextBackground = game.add.sprite(controlArea.x + 10, controlArea.y + 10, 'text');
+	var turnIndicatorTextBackground = game.add.sprite(controlArea.x + 10, controlArea.y + 50, 'text');
+	var button = game.add.button(controlArea.x + 10, controlArea.y + 90, 'pass', pass, this, 0, 0, 1, 0);
+	button = game.add.button(controlArea.x + 10, controlArea.y + 130, 'endturn', endTurn, this, 0, 0, 1, 0);
+	button = game.add.button(controlArea.x + 10, controlArea.y + 170, 'vote', vote, this, 0, 0, 1, 0);
+	var style = {
+		font : "bold 20px Calibri",
+		wordWrap: true,
+		wordWrapWidth: 150,
+		align: "center"
+	};
+	currentPhaseText = game.add.text(0, 0, "-", style);
+	currentPhaseText.anchor.set(0.5);
+	currentPhaseText.x = currentPhaseTextBackground.x + 75;
+	currentPhaseText.y = currentPhaseTextBackground.y + 15;
+	turnIndicatorText = game.add.text(0, 0, "-", style);
+	turnIndicatorText.anchor.set(0.5);
+	turnIndicatorText.x = turnIndicatorTextBackground.x + 75;
+	turnIndicatorText.y = turnIndicatorTextBackground.y+ 15;
 	game.physics.startSystem(Phaser.Physics.ARCADE);
 	debug = game.add.graphics(0, 0);
 	debug.lineStyle(2, 0xFFFFFF, 1);
@@ -67,6 +88,7 @@ function create() {
 	hand.x = handArea.x;
 	hand.y = handArea.y;
 	players = game.add.group();
+	click = game.add.audio('click');
 }
 
 function addMessage(message) {
@@ -82,7 +104,8 @@ function processMessage(message) {
 	if (message.Type == MESSAGE_CHOICES_LIST) {
 		updateGameState(message.Value.State)
 		availableActions = message.Value.Actions;
-		alert("Now you must choose");
+		turnIndicatorText.setText("You choose");
+		click.play();
 		messageInProcessing = null;
 		return
 	}
@@ -135,7 +158,7 @@ function showAction(msg, state) {
 			messageInProcessing = null;
 			break;
 		case "New phase":
-			alert(msg.Action.Arguments.Phase);
+			currentPhaseText.setText(msg.Action.Arguments.Phase);	
 			if (msg.Action.Arguments.Phase = "Development") {
 				for (var i in players.children) {
 					for (var j in players.getChildAt(i).Creatures.children) {
@@ -168,7 +191,7 @@ function showAction(msg, state) {
 				if (card != null) break;
 			}
 			if (card != null) {
-				card.destoy();
+				card.destroy();
 			}
 			messageInProcessing = null;
 			break;
@@ -191,7 +214,7 @@ function showAction(msg, state) {
 					case "Additional food":
 						var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
 						var circle = game.add.graphics();
-						creature.Food.add(circle);
+						creature.AdditionalFood.add(circle);
 						circle.x = backBounds.randomX;
 						circle.y = backBounds.randomY;
 						circle.beginFill(0x0000FF, 1);
@@ -212,7 +235,7 @@ function showAction(msg, state) {
 						var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
 						var backBounds = new Phaser.Rectangle(-cardWidth/8, -cardHeight/8, cardWidth/4, cardHeight/4);
 						var circle = game.add.graphics();
-						creature.Food.add(circle);
+						creature.Fat.add(circle);
 						circle.x = backBounds.randomX;
 						circle.y = backBounds.randomY;
 						circle.beginFill(0xFFFF00, 1);
@@ -699,7 +722,11 @@ function addPropertyEvents(card) {
 		card.events.onInputDown.add(function (card) {
 			startSelection(card.parent.parent, card.parent.parent, onSelectAttackTarget);
 		}, card);
-    }
+    } else if ($.inArray("Fat tissue", traits) != -1) {
+        card.events.onInputUp.add(function (card) {
+			executeActionBurnFat(card.parent.parent.Id);
+		}, card);
+	}
 }
 
 function propertyOver(card, pointer) {

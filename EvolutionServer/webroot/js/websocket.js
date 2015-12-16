@@ -8,13 +8,13 @@ socket.onmessage = onSocketMessage;
 
 function onSocketOpen(event) {
 	var textArea = document.getElementById("log");
-    textArea.value = "";
+   // textArea.value = "";
 };
 
 function onSocketMessage(event) {
-	var textArea = document.getElementById("log");
-	textArea.value = textArea.value + '\n' + event.data;
-	textArea.scrollTop = textArea.scrollHeight;
+	//var textArea = document.getElementById("log");
+	//textArea.value = textArea.value + '\n' + event.data;
+	//textArea.scrollTop = textArea.scrollHeight;
 	var obj = JSON.parse(event.data);
 	addMessage(obj);
 };
@@ -47,6 +47,7 @@ function executeAction(action) {
 		var tmp2 = JSON.stringify(availableActions[i]);
 		if (JSON.stringify(availableActions[i]) === JSON.stringify(action)) {
 			availableActions = null;
+			turnIndicatorText.setText("Please wait");
 			response = {
 				Type: MESSAGE_CHOICE_NUM,
 				Value:i

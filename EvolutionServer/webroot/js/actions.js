@@ -118,3 +118,12 @@ function executeActionGrabFood(creatureId) {
 		}};
 	return executeAction(action);
 }
+
+function executeActionBurnFat(creatureId) {
+	var action = {
+		Type: "Burn fat",
+		Arguments: {
+			Creature: creatureId
+		}};
+	return executeAction(action);
+}
